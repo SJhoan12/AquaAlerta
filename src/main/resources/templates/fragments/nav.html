@@ -1,18 +1,33 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <body>
-<aside th:fragment="sidebar(active)" class="sidebar">
-    <div class="brand"><span class="brand-drop">💧</span> AquaAlerta</div>
+<aside th:fragment="sidebar(active, numAlertas)" class="sidebar">
+    <div class="brand">
+        <span class="brand-drop" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3C9.2 7.1 6 10.3 6 14a6 6 0 0 0 12 0c0-3.7-3.2-6.9-6-11Z"/><path d="M9.5 15.5a2.8 2.8 0 0 0 2.8 2.2"/></svg>
+        </span>
+        AquaAlerta
+    </div>
     <nav class="side-nav">
-        <a th:href="@{/}" th:classappend="${active == 'inicio'} ? 'active' : ''"><span class="ico">🏠</span> Inicio</a>
-        <a th:href="@{/tanques}" th:classappend="${active == 'config'} ? 'active' : ''"><span class="ico">⚙️</span> Configuración</a>
-        <a th:href="@{/historial}" th:classappend="${active == 'historial'} ? 'active' : ''"><span class="ico">📊</span> Historial</a>
-        <a th:href="@{/alertas}" th:classappend="${active == 'alertas'} ? 'active' : ''"><span class="ico">🔔</span> Alertas</a>
+        <a th:href="@{/}" th:classappend="${active == 'inicio'} ? 'active' : ''">
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-7h6v7"/></svg></span> Inicio
+        </a>
+        <a th:href="@{/tanques}" th:classappend="${active == 'config'} ? 'active' : ''">
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg></span> Configuración
+        </a>
+        <a th:href="@{/historial}" th:classappend="${active == 'historial'} ? 'active' : ''">
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h17"/><path d="m7 15 4-4 3 2 5-6"/></svg></span> Historial
+        </a>
+        <a th:href="@{/alertas}" th:classappend="${active == 'alertas'} ? 'active' : ''">
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></span> Alertas
+            <span th:if="${numAlertas != null and numAlertas > 0}" class="badge badge-small" th:text="${numAlertas}">2</span>
+        </a>
     </nav>
     <div class="side-foot">
-        <a th:href="@{/logout}"><span class="ico">↩️</span> Cerrar sesión</a>
+        <a th:href="@{/logout}">
+            <span class="ico logout-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></svg></span> Cerrar sesión
+        </a>
     </div>
 </aside>
 </body>
 </html>
-

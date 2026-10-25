@@ -1,6 +1,7 @@
 package com.aquaalerta.aquaalerta.controller;
 
 import com.aquaalerta.aquaalerta.Tanque;
+import com.aquaalerta.aquaalerta.repository.AlertaRepository;
 import com.aquaalerta.aquaalerta.service.TanqueService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -11,9 +12,12 @@ import org.springframework.web.bind.annotation.*;
 public class TanqueController {
 
     private final TanqueService tanqueService;
+    private final AlertaRepository alertaRepository;
 
-    public TanqueController(TanqueService tanqueService) {
+    public TanqueController(TanqueService tanqueService,
+                            AlertaRepository alertaRepository) {
         this.tanqueService = tanqueService;
+        this.alertaRepository = alertaRepository;
     }
 
     @GetMapping
@@ -22,6 +26,7 @@ public class TanqueController {
         if (!model.containsAttribute("tanque")) {
             model.addAttribute("tanque", new Tanque());
         }
+        model.addAttribute("numAlertas", alertaRepository.findByEstado("ACTIVA").size());
         return "tanques";
     }
 

@@ -4,6 +4,7 @@ import com.aquaalerta.aquaalerta.LecturaNivel;
 import com.aquaalerta.aquaalerta.Tanque;
 import com.aquaalerta.aquaalerta.repository.LecturaNivelRepository;
 import com.aquaalerta.aquaalerta.repository.TanqueRepository;
+import com.aquaalerta.aquaalerta.service.CalculoVolumenService;
 import com.aquaalerta.aquaalerta.service.DeteccionAnomaliasService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,9 @@ public class LecturaController {
 
     @Autowired
     private DeteccionAnomaliasService deteccionService;
+
+    @Autowired
+    private CalculoVolumenService calculoVolumenService;
 
     public static class LecturaRequest {
         private String tanqueId;
@@ -77,8 +81,8 @@ public class LecturaController {
             nivelCm = 0;
         }
 
-        double radio = tanque.getDiametroCm() / 2.0;
-        double volumenLitros = Math.PI * radio * radio * nivelCm / 1000.0;
+        double volumenLitros = calculoVolumenService.calcularVolumenLitros(
+                nivelCm, tanque.getDiametroCm());
 
         LecturaNivel lectura = new LecturaNivel();
         lectura.setTanqueId(request.getTanqueId());

@@ -5,7 +5,7 @@
 <title>Configuración - AquaAlerta</title><link rel="stylesheet" th:href="@{/style.css}">
 </head>
 <body><div class="layout">
-<div th:replace="~{fragments/nav :: sidebar('config')}"></div>
+<div th:replace="~{fragments/nav :: sidebar('config', ${numAlertas})}"></div>
 <main class="main">
 <div class="topbar"><div><div class="page-title">Configuración del tanque</div><div class="page-sub">Medidas y avisos de tu tanque.</div></div></div>
 <div class="grid grid-2"><div class="card">

@@ -19,6 +19,7 @@ public class AlertaController {
     public String bandeja(Model model) {
         model.addAttribute("activas", alertaRepository.findByEstado("ACTIVA"));
         model.addAttribute("resueltas", alertaRepository.findByEstado("RESUELTA"));
+        model.addAttribute("numAlertas", alertaRepository.findByEstado("ACTIVA").size());
         return "alertas";
     }
 

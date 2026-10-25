@@ -8,7 +8,7 @@
 </head>
 <body>
 <div class="layout">
-<div th:replace="~{fragments/nav :: sidebar('inicio')}"></div>
+<div th:replace="~{fragments/nav :: sidebar('inicio', ${numAlertas})}"></div>
 <main class="main">
 <div class="topbar">
 <div>
@@ -27,10 +27,22 @@
 <p>Configura tu primer tanque para ver el nivel aqui.</p>
 <a th:href="@{/tanques}" class="btn btn-primary btn-center">Configurar mi tanque</a>
 </div>
-<div th:if="${sel != null}">
+<div th:if="${sel != null and #lists.isEmpty(ultimas)}" class="empty">
+<h3 th:text="${sel.nombre}">Tanque</h3>
+<p>Este tanque todavía no tiene lecturas. Selecciona otro tanque o espera a que el sensor envíe datos.</p>
+</div>
+<div th:if="${sel != null and !#lists.isEmpty(ultimas)}">
 <div class="grid grid-2">
 <div class="card">
 <h3 th:text="${sel.nombre}">Tanque</h3>
+<div class="sensor-indicator">
+<span class="sensor-status" th:classappend="${sensorConectado} ? ' sensor-connected' : ' sensor-disconnected'">
+<span class="sensor-dot"></span>
+<span th:text="${sensorConectado} ? 'ESP32 conectado' : 'Sin señal reciente'">Sin señal reciente</span>
+</span>
+<span class="sensor-sync" th:if="${ultimaSincronizacion != null}" th:text="'Última sincronización: ' + ${#temporals.format(ultimaSincronizacion, 'dd/MM/yyyy HH:mm')}">Última sincronización</span>
+<span class="sensor-sync" th:if="${ultimaSincronizacion == null}">Última sincronización: no disponible</span>
+</div>
 <span class="hint">Nivel actual</span>
 <div class="level-big"><span th:text="${#numbers.formatInteger(sel.nivelCm, 1, 'POINT')}">0</span><small> cm</small></div>
 <div class="level-liters"><span th:text="${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')}">0</span> litros disponibles</div>

@@ -2,7 +2,9 @@ package com.aquaalerta.aquaalerta.controller;
 
 import com.aquaalerta.aquaalerta.Usuario;
 import com.aquaalerta.aquaalerta.repository.UsuarioRepository;
+import com.aquaalerta.aquaalerta.service.PasswordService;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,9 +16,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 public class HomeController {
 
     private final UsuarioRepository usuarioRepository;
+    private final PasswordService passwordService;
 
-    public HomeController(UsuarioRepository usuarioRepository) {
+    public HomeController(UsuarioRepository usuarioRepository, PasswordService passwordService) {
         this.usuarioRepository = usuarioRepository;
+        this.passwordService = passwordService;
     }
 
     @GetMapping("/login")
@@ -31,11 +35,16 @@ public class HomeController {
     @PostMapping("/login")
     public String procesarLogin(@RequestParam String username,
                                 @RequestParam String password,
-                                HttpSession session,
+                                HttpServletRequest request,
                                 Model model) {
         var opt = usuarioRepository.findByUsername(username);
-        if (opt.isPresent() && opt.get().getPassword().equals(password)) {
-            session.setAttribute("usuario", username);
+        if (opt.isPresent() && passwordService.verifyAndUpgrade(opt.get(), password)) {
+            usuarioRepository.save(opt.get());
+            HttpSession previousSession = request.getSession(false);
+            if (previousSession != null) {
+                previousSession.invalidate();
+            }
+            request.getSession(true).setAttribute("usuario", username);
             return "redirect:/";
         }
         model.addAttribute("error", "Usuario o contraseña incorrectos.");
@@ -65,6 +74,7 @@ public class HomeController {
             model.addAttribute("usuario", usuario);
             return "registro";
         }
+        usuario.setPassword(passwordService.encode(usuario.getPassword()));
         if (usuario.getRol() == null || usuario.getRol().isBlank()) {
             usuario.setRol("USER");
         }
@@ -78,4 +88,3 @@ public class HomeController {
         return "redirect:/login";
     }
 }
-
