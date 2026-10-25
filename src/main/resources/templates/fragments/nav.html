@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<aside th:fragment="sidebar(active)" class="sidebar">
+    <div class="brand"><span class="brand-drop">💧</span> AquaAlerta</div>
+    <nav class="side-nav">
+        <a th:href="@{/}" th:classappend="${active == 'inicio'} ? 'active' : ''"><span class="ico">🏠</span> Inicio</a>
+        <a th:href="@{/tanques}" th:classappend="${active == 'config'} ? 'active' : ''"><span class="ico">⚙️</span> Configuración</a>
+        <a th:href="@{/historial}" th:classappend="${active == 'historial'} ? 'active' : ''"><span class="ico">📊</span> Historial</a>
+        <a th:href="@{/alertas}" th:classappend="${active == 'alertas'} ? 'active' : ''"><span class="ico">🔔</span> Alertas</a>
+    </nav>
+    <div class="side-foot">
+        <a th:href="@{/logout}"><span class="ico">↩️</span> Cerrar sesión</a>
+    </div>
+</aside>
+</body>
+</html>
+

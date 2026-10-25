@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alertas - AquaAlerta</title><link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body><div class="layout">
+<div th:replace="~{fragments/nav :: sidebar('alertas')}"></div>
+<main class="main">
+<div class="topbar"><div><div class="page-title">Alertas</div><div class="page-sub">Informativos y anomalías de consumo.</div></div></div>
+<div class="stat-row">
+<div class="card stat"><div class="num" style="color:var(--red)" th:text="${#lists.size(activas)}">0</div><div class="lbl">Activas</div></div>
+<div class="card stat"><div class="num" style="color:var(--yellow)" th:text="${#lists.size(activas)}">0</div><div class="lbl">Informativos</div></div>
+<div class="card stat"><div class="num" style="color:var(--green)" th:text="${#lists.size(resueltas)}">0</div><div class="lbl">Resueltas</div></div>
+</div>
+<div class="card"><h3>Activas</h3><span class="hint">Requieren tu atención</span>
+<div th:if="${#lists.isEmpty(activas)}" class="empty" style="margin-top:12px;padding:28px"><div class="e-ico">✅</div><p>Sin alertas activas. Todo en orden.</p></div>
+<div class="alert-item" th:each="a : ${activas}" th:classappend="${a.tipo == 'ANOMALIA_CONSUMO'} ? ' anomalia' : ' informativo'">
+<div class="a-top"><span class="badge badge-red" th:if="${a.tipo == 'ANOMALIA_CONSUMO'}">Anomalía de consumo</span><span class="badge badge-yellow" th:unless="${a.tipo == 'ANOMALIA_CONSUMO'}" th:text="${a.tipo}">Informativo</span><span class="hint" th:text="${a.timestamp != null ? #temporals.format(a.timestamp,'dd/MM HH:mm') : ''}"></span></div>
+<div class="a-desc" th:text="${a.descripcion}">Descripción</div>
+<div class="a-meta">Tanque <span th:text="${a.tanqueId}"></span> · Desviación <span th:text="${a.desviacionPorcentaje}"></span>% (umbral <span th:text="${a.umbralAplicadoPct}"></span>%)</div>
+<form th:action="@{'/alertas/resolver/' + ${a.id}}" method="post" style="margin-top:10px"><button class="btn btn-green btn-sm">Marcar como resuelta</button></form>
+</div></div>
+<div class="card" style="margin-top:16px"><h3>Resueltas</h3><span class="hint">Ya atendidas</span>
+<div th:if="${#lists.isEmpty(resueltas)}"><p class="hint" style="margin-top:10px">Aún no hay alertas resueltas.</p></div>
+<div class="alert-item resuelta" th:each="a : ${resueltas}"><div class="a-top"><span class="badge badge-gray" th:text="${a.tipo}">Tipo</span></div><div class="a-desc" th:text="${a.descripcion}">Descripción</div></div>
+</div></main></div>
+</body></html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial - AquaAlerta</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+    <div class="layout">
+        <div th:replace="~{fragments/nav :: sidebar('historial')}"></div>
+        <main class="main">
+            <div class="topbar">
+                <div>
+                    <div class="crumbs">
+                        <a th:href="@{/}">Mi hogar</a>
+                        <span class="sep">/</span>
+                        <span class="current">Historial</span>
+                    </div>
+                    <div class="page-title">Historial y reportes</div>
+                    <div class="page-sub">Consulta tus lecturas y entiende cómo usas el agua.</div>
+                </div>
+                <div class="topbar-right">
+                    <span class="live"><i></i> Datos al día</span>
+                </div>
+            </div>
+            <form class="filter-bar" th:action="@{/historial}" method="get">
+                <div class="field">
+                    <label for="f-tanque">Tanque</label>
+                    <input
+                        id="f-tanque"
+                        class="input"
+                        name="tanqueId"
+                        placeholder="ID del tanque (vacio = todos)"
+                        th:value="${tanqueId}"
+                    >
+                </div>
+                <div class="filter-actions">
+                    <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+                    <span class="badge badge-blue" th:text="'Total: ' + ${#lists.size(lecturas)}">Total: 0</span>
+                </div>
+            </form>
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Lecturas registradas</h3>
+                        <span class="hint">Fecha, distancia, nivel, volumen y estado.</span>
+                    </div>
+                    <span class="count-note" th:text="${#lists.size(lecturas)} + ' lecturas'">0 lecturas</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead>
+                            <tr>
+                                <th>Fecha y hora</th>
+                                <th>Tanque</th>
+                                <th>Distancia</th>
+                                <th>Nivel (cm)</th>
+                                <th>Volumen (litros)</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="l : ${lecturas}">
+                                <td th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'dd/MM/yyyy, HH:mm') : '-'}">-</td>
+                                <td th:text="${l.tanqueId}">-</td>
+                                <td th:text="${#numbers.formatInteger(l.distanciaCm, 1, 'POINT')}">-</td>
+                                <td th:text="${#numbers.formatInteger(l.nivelCm, 1, 'POINT')}">-</td>
+                                <td th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">-</td>
+                                <td>
+                                    <span class="badge badge-red" th:if="${l.esAnomalia}">Anomalia de consumo</span>
+                                    <span class="badge badge-green" th:unless="${l.esAnomalia}">Normal</span>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(lecturas)}">
+                                <td colspan="6" style="text-align: center; color: var(--muted);">Sin lecturas para este filtro.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-foot">
+                    <span th:text="'Mostrando ' + ${#lists.size(lecturas)} + ' lecturas'">Mostrando 0</span>
+                    <span>Pagina 1 de 1</span>
+                </div>
+            </div>
+            <div class="report-grid">
+                <div class="card">
+                    <h3>Consumo por dia</h3>
+                    <span class="hint">Descensos de volumen. La recarga no suma.</span>
+                    <div class="mini-bars" th:if="${!#lists.isEmpty(lecturas)}">
+                        <div class="mini-bar" th:each="l, it : ${lecturas}" th:if="${it.index &lt; 5}">
+                            <b th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">0</b>
+                            <span class="col" th:style="'height:' + ${40 + it.index * 12} + 'px'"></span>
+                            <span th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'dd/MM') : '-'}">-</span>
+                        </div>
+                    </div>
+                    <p class="hint" th:if="${#lists.isEmpty(lecturas)}">Todavia no hay datos para graficar.</p>
+                    <div class="legend">
+                        <span><i style="background: var(--blue);"></i> Registrado</span>
+                        <span><i style="background: #cbd5e1;"></i> Habitual: 200 L</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Consumo por horario</h3>
+                    <span class="hint">Actual frente al historico de tu vivienda.</span>
+                    <div th:if="${#lists.size(lecturas) >= 2}">
+                        <div class="bar-row">
+                            <span class="b-label">Actual</span>
+                            <div class="bar"><span style="width: 65%;"></span></div>
+                            <b>Actual</b>
+                        </div>
+                        <div class="bar-row">
+                            <span class="b-label">Historico</span>
+                            <div class="bar"><span class="hist" style="width: 45%;"></span></div>
+                            <b>Habitual</b>
+                        </div>
+                        <p class="hint" style="margin-top: 10px;">Los aumentos se interpretan como recarga y no suman al consumo.</p>
+                    </div>
+                    <p class="hint" th:if="${#lists.size(lecturas) &lt; 2}">Necesitas al menos 2 lecturas para generar el reporte.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

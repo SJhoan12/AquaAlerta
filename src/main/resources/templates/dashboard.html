@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio - AquaAlerta</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<div class="layout">
+<div th:replace="~{fragments/nav :: sidebar('inicio')}"></div>
+<main class="main">
+<div class="topbar">
+<div>
+<div class="page-title">Tu agua, de un vistazo</div>
+<div class="page-sub">Nivel y consumo de tus tanques.</div>
+</div>
+<form th:if="${sel != null}" method="get" th:action="@{/}">
+<select class="input sel-tanque" name="tanqueId" onchange="this.form.submit()">
+<option th:each="t : ${tanques}" th:value="${t.tanqueId}" th:selected="${t.tanqueId == sel.tanqueId}" th:text="${t.nombre}">Tanque</option>
+</select>
+</form>
+</div>
+<div th:if="${sel == null}" class="empty">
+<div class="e-ico">Gota</div>
+<h3>Sin tanques todavia</h3>
+<p>Configura tu primer tanque para ver el nivel aqui.</p>
+<a th:href="@{/tanques}" class="btn btn-primary btn-center">Configurar mi tanque</a>
+</div>
+<div th:if="${sel != null}">
+<div class="grid grid-2">
+<div class="card">
+<h3 th:text="${sel.nombre}">Tanque</h3>
+<span class="hint">Nivel actual</span>
+<div class="level-big"><span th:text="${#numbers.formatInteger(sel.nivelCm, 1, 'POINT')}">0</span><small> cm</small></div>
+<div class="level-liters"><span th:text="${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')}">0</span> litros disponibles</div>
+<div class="level-cap">Capacidad total: <span th:text="${#numbers.formatInteger(sel.volumenMax, 1, 'POINT')}">0</span> L</div>
+<div class="badge-row">
+<span class="badge badge-green" th:if="${sel.estado == 'NORMAL'}">Normal</span>
+<span class="badge badge-yellow" th:if="${sel.estado == 'BAJO'}">Nivel bajo</span>
+<span class="badge badge-red" th:if="${sel.estado != 'NORMAL' and sel.estado != 'BAJO'}" th:text="${sel.estado}">Estado</span>
+</div>
+<div class="progress"><span th:style="'width:' + ${#numbers.formatInteger(sel.porcentaje, 1)} + '%'"></span></div>
+<div class="hint hint-mt"><span th:text="${#numbers.formatInteger(sel.porcentaje, 1)}">0</span>% de la capacidad</div>
+</div>
+<div class="card">
+<h3>Ultimas lecturas</h3>
+<span class="hint">Las mas recientes</span>
+<div class="table-wrap table-mt">
+<table class="data">
+<thead><tr><th>Hora</th><th>Nivel</th><th>Volumen</th><th>Estado</th></tr></thead>
+<tbody>
+<tr th:each="l, it : ${ultimas}" th:if="${it.index &lt; 5}">
+<td th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'HH:mm') : '-'}">--:--</td>
+<td th:text="${#numbers.formatInteger(l.nivelCm, 1, 'POINT')} + ' cm'">0 cm</td>
+<td th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">0 L</td>
+<td><span class="badge badge-red" th:if="${l.esAnomalia}">Anomalia</span><span class="badge badge-green" th:unless="${l.esAnomalia}">Normal</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!--BLOQUE2-->
+<div class="grid grid-2 grid-gap-top">
+<div class="card">
+<h3>Consumo de la franja</h3>
+<span class="hint">Actual frente a lo habitual</span>
+<div th:if="${#lists.size(ultimas) >= 2}">
+<div class="consume-big"><span th:text="${#numbers.formatInteger(ultimas[0].volumenLitros - ultimas[#lists.size(ultimas) - 1].volumenLitros, 1, 'POINT')}">0</span><small> L</small></div>
+<div class="bar-row"><span class="b-label">Reciente</span><div class="bar"><span style="width: 60%;"></span></div></div>
+<div class="bar-row"><span class="b-label">Habitual</span><div class="bar"><span class="hist" style="width: 40%;"></span></div></div>
+<p class="hint hint-mt">El valor habitual se calcula con tu historial por franja.</p>
+</div>
+<p class="hint hint-mt" th:if="${#lists.size(ultimas) &lt; 2}">Aun no hay suficientes lecturas.</p>
+</div>
+<div class="card">
+<h3>Estado del tanque</h3>
+<span class="hint">Resumen rapido</span>
+<div class="stat-list">
+<div class="stat-line"><span>Nivel</span><b th:text="${#numbers.formatInteger(sel.nivelCm, 1, 'POINT')} + ' cm'">0 cm</b></div>
+<div class="stat-line"><span>Volumen</span><b th:text="${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')} + ' L'">0 L</b></div>
+<div class="stat-line"><span>Lecturas</span><b th:text="${#lists.size(ultimas)}">0</b></div>
+</div>
+</div>
+</div>
+<div class="card trend-card">
+<h3>Tendencia del nivel</h3>
+<span class="hint">Ultimas lecturas</span>
+<div id="chartData" style="display: none;">
+<span th:each="l : ${ultimas}" th:attr="data-hora=${l.timestamp != null ? #temporals.format(l.timestamp, 'HH:mm') : ''}, data-nivel=${l.nivelCm}"></span>
+</div>
+<div class="chart-box"><canvas id="ch" height="160"></canvas></div>
+</div>
+<script th:if="${sel != null}">
+(function () {
+var holder = document.getElementById('chartData');
+var c = document.getElementById('ch');
+if (!holder || !c) return;
+var items = holder.querySelectorAll('span[data-nivel]');
+if (!items.length) return;
+var LB = [], VB = [], i;
+for (i = 0; i < items.length; i++) {
+LB.push(items[i].getAttribute('data-hora') || '');
+VB.push(parseFloat(items[i].getAttribute('data-nivel')) || 0);
+}
+function draw() {
+var w = c.parentElement.clientWidth;
+c.width = w * 2;
+c.height = 320;
+var x = c.getContext('2d');
+var W = c.width, H = c.height;
+var mn = Math.min.apply(null, VB), mx = Math.max.apply(null, VB), rg = (mx - mn) || 1;
+var step = Math.max(VB.length - 1, 1);
+function px(k) { return 30 + k * ((W - 50) / step); }
+function py(v) { return H - 40 - ((v - mn) / rg) * (H - 90); }
+var j;
+x.beginPath();
+x.moveTo(px(0), H - 40);
+for (j = 0; j < VB.length; j++) x.lineTo(px(j), py(VB[j]));
+x.lineTo(px(VB.length - 1), H - 40);
+x.closePath();
+x.fillStyle = 'rgba(59,130,246,.12)';
+x.fill();
+x.beginPath();
+for (j = 0; j < VB.length; j++) { if (j === 0) x.moveTo(px(j), py(VB[j])); else x.lineTo(px(j), py(VB[j])); }
+x.strokeStyle = '#3b82f6';
+x.lineWidth = 5;
+x.lineJoin = 'round';
+x.stroke();
+for (j = 0; j < VB.length; j++) {
+x.beginPath();
+x.arc(px(j), py(VB[j]), 7, 0, Math.PI * 2);
+x.fillStyle = '#3b82f6';
+x.fill();
+}
+x.fillStyle = '#64748b';
+x.font = '20px Segoe UI';
+var cada = Math.ceil(LB.length / 5) || 1;
+for (j = 0; j < LB.length; j++) { if (j % cada === 0) x.fillText(LB[j], px(j) - 20, H - 10); }
+}
+draw();
+window.addEventListener('resize', draw);
+})();
+</script>
+</div>
+</main>
+</div>
+</body>
+</html>

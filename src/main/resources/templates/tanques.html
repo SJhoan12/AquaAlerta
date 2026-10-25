@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Configuración - AquaAlerta</title><link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body><div class="layout">
+<div th:replace="~{fragments/nav :: sidebar('config')}"></div>
+<main class="main">
+<div class="topbar"><div><div class="page-title">Configuración del tanque</div><div class="page-sub">Medidas y avisos de tu tanque.</div></div></div>
+<div class="grid grid-2"><div class="card">
+<h3>Tanque</h3><span class="hint">Completa los datos y guarda</span>
+<form th:action="@{/tanques/guardar}" th:object="${tanque}" method="post" style="margin-top:12px">
+<input type="hidden" th:field="*{id}">
+<div class="field"><label>Nombre</label><input class="input" th:field="*{nombre}" required placeholder="Tanque principal"></div>
+<div class="row-2"><div class="field"><label>Altura máxima (cm)</label><input class="input" type="number" step="0.01" th:field="*{alturaMaxCm}" required></div>
+<div class="field"><label>Diámetro (cm)</label><input class="input" type="number" step="0.01" th:field="*{diametroCm}" required></div></div>
+<div class="field"><label>Umbral mínimo (cm)</label><input class="input" type="number" step="0.01" th:field="*{umbralMinimo}"></div>
+<div class="row-2"><div class="field"><label>Margen informativo (%)</label><input class="input" type="number" step="0.01" th:field="*{margenInformativoPct}"></div>
+<div class="field"><label>Umbral de anomalía (%)</label><input class="input" type="number" step="0.01" th:field="*{umbralAnomaliaPct}"></div></div>
+<button class="btn btn-primary">Guardar tanque</button></form></div>
+<div class="card"><h3>Tanques registrados</h3><span class="hint" th:text="${#lists.size(tanques)} + ' en total'">0</span>
+<div th:if="${#lists.isEmpty(tanques)}" class="empty" style="margin-top:12px;padding:28px"><p>Todavía no hay tanques.</p></div>
+<div class="tank-item" th:each="t : ${tanques}"><div><div class="t-name" th:text="${t.nombre}">Tanque</div><div class="t-meta"><span th:text="${t.alturaMaxCm}">0</span> cm · Ø <span th:text="${t.diametroCm}">0</span> cm · <span th:text="${#numbers.formatDecimal(t.volumenMax,1,0)}">0</span> L</div></div>
+<div class="tank-actions"><a class="btn btn-outline btn-sm" th:href="@{'/tanques/editar/' + ${t.id}}">Editar</a><a class="btn btn-danger-soft btn-sm" th:href="@{'/tanques/eliminar/' + ${t.id}}">Eliminar</a></div></div>
+</div></div></main></div>
+</body></html>
