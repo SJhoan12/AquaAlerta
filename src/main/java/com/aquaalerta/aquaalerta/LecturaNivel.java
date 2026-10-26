@@ -3,6 +3,8 @@ package com.aquaalerta.aquaalerta;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Document(collection = "lecturasNivel")
 public class LecturaNivel {
@@ -12,6 +14,8 @@ public class LecturaNivel {
     private String tanqueId;
     private String sensorId;
     private double distanciaCm;
+    private List<Double> distanciasOriginalesCm = new ArrayList<>();
+    private boolean tieneMuestrasAtipicas;
     private double nivelCm;
     private double volumenLitros;
     private LocalDateTime timestamp;
@@ -50,6 +54,24 @@ public class LecturaNivel {
 
     public void setDistanciaCm(double distanciaCm) {
         this.distanciaCm = distanciaCm;
+    }
+
+    public List<Double> getDistanciasOriginalesCm() {
+        return distanciasOriginalesCm;
+    }
+
+    public void setDistanciasOriginalesCm(List<Double> distanciasOriginalesCm) {
+        this.distanciasOriginalesCm = distanciasOriginalesCm == null
+                ? new ArrayList<>()
+                : new ArrayList<>(distanciasOriginalesCm);
+    }
+
+    public boolean isTieneMuestrasAtipicas() {
+        return tieneMuestrasAtipicas;
+    }
+
+    public void setTieneMuestrasAtipicas(boolean tieneMuestrasAtipicas) {
+        this.tieneMuestrasAtipicas = tieneMuestrasAtipicas;
     }
 
     public double getNivelCm() {

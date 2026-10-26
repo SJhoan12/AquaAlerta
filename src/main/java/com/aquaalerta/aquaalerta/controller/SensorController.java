@@ -10,7 +10,8 @@ import java.util.List;
 /**
  * CU06 + CU07: el ESP32 registra la lectura (RF06) y el backend
  * calcula/persiste nivel y volumen. Comunicación HTTP + WiFi (12.2).
- * El ESP32 envía mediana de distancia + sensorId.
+ * El ESP32 puede enviar varias distancias originales o una distancia individual
+ * para compatibilidad con versiones anteriores.
  */
 @RestController
 @RequestMapping("/api/lecturas")
@@ -27,4 +28,3 @@ public class SensorController {
         return lecturaNivelRepository.findAll();
     }
 }
-

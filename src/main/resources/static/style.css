@@ -207,6 +207,9 @@ body {
     padding: 4px 12px;
     border-radius: 99px;
 }
+.badge-green { background: var(--green-soft); color: var(--green); }
+.badge-yellow { background: var(--yellow-soft); color: var(--yellow); }
+.badge-red { background: var(--red-soft); color: var(--red); }
 .badge-gray { background: #f1f5f9; color: var(--muted); }
 
 .table-wrap { overflow-x: auto; }
@@ -840,6 +843,11 @@ table.data tbody tr:hover { background: #f8fafc; }
 .status-badge.badge-red {
     background: var(--red-soft);
     color: var(--red);
+}
+
+.status-badge.badge-yellow {
+    background: var(--yellow-soft);
+    color: var(--yellow);
 }
 
 .status-badge::before {

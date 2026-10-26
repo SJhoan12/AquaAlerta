@@ -66,7 +66,11 @@
 <td th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'HH:mm') : '-'}">--:--</td>
 <td th:text="${#numbers.formatInteger(l.nivelCm, 1, 'POINT')} + ' cm'">0 cm</td>
 <td th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">0 L</td>
-<td><span class="badge badge-red" th:if="${l.esAnomalia}">Anomalia</span><span class="badge badge-green" th:unless="${l.esAnomalia}">Normal</span></td>
+<td>
+<span class="badge badge-red" th:if="${l.esAnomalia}">Anomalía de consumo</span>
+<span class="badge badge-yellow" th:if="${!l.esAnomalia and l.tieneMuestrasAtipicas}">Muestra atípica</span>
+<span class="badge badge-green" th:if="${!l.esAnomalia and !l.tieneMuestrasAtipicas}">Normal</span>
+</td>
 </tr>
 </tbody>
 </table>

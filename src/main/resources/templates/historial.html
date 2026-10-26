@@ -62,7 +62,9 @@
                                 <td class="num-cell" th:text="${#numbers.formatInteger(l.nivelCm, 1, 'POINT')} + ' cm'">138 cm</td>
                                 <td class="num-cell" th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">1.068 L</td>
                                 <td class="status-cell">
-                                    <span class="badge status-badge" th:classappend="${l.esAnomalia} ? ' badge-red' : ' badge-green'" th:text="${l.esAnomalia} ? 'Anomalía de consumo' : 'Normal'">Normal</span>
+                                    <span class="badge status-badge badge-red" th:if="${l.esAnomalia}">Anomalía de consumo</span>
+                                    <span class="badge status-badge badge-yellow" th:if="${!l.esAnomalia and l.tieneMuestrasAtipicas}">Muestra atípica del sensor</span>
+                                    <span class="badge status-badge badge-green" th:if="${!l.esAnomalia and !l.tieneMuestrasAtipicas}">Normal</span>
                                 </td>
                             </tr>
                             <tr th:if="${#lists.isEmpty(lecturas)}">
