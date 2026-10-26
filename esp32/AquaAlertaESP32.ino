@@ -1,7 +1,7 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-const char* WIFI_SSID = "Familia Silva";
+const char* WIFI_SSID = "FAMILIA SILVA";
 const char* WIFI_PASSWORD = "silvacarrasco";
 const char* SERVER_URL = "http://192.168.15.22:8080/api/lecturas";
 const char* TANQUE_ID = "6ad972e46a83f73340d2c31";
@@ -136,4 +136,3 @@ void loop() {
     }
     delay(100);
 }
-c

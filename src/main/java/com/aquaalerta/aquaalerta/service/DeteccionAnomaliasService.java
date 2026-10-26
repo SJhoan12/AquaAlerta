@@ -53,6 +53,9 @@ public class DeteccionAnomaliasService {
     }
 
     public void evaluar(Tanque tanque, LecturaNivel guardada) {
+        if (guardada.isTieneMuestrasAtipicas()) {
+            return;
+        }
         LocalDateTime ts = guardada.getTimestamp();
         if (ts == null) {
             ts = LocalDateTime.now();
