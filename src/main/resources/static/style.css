@@ -258,6 +258,21 @@ table.data tbody tr:hover { background: #f8fafc; }
 .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; width: auto; }
 .btn-green { background: var(--green); color: #fff; }
 .btn-green:hover { background: #15803d; }
+.btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+}
+.btn-export svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2;
+}
 .btn-danger-soft { background: var(--red-soft); color: var(--red); }
 .btn-outline {
     background: #fff;

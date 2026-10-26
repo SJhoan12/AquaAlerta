@@ -35,6 +35,14 @@
                         </select>
                     </div>
                     <button class="btn btn-primary" type="submit">Aplicar filtros</button>
+                    <button class="btn btn-green btn-export" type="submit"
+                            th:formaction="@{/historial/exportar.xlsx}" formmethod="get">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 3v11m0 0 4-4m-4 4-4-4"/>
+                            <path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>
+                        </svg>
+                        <span>Descargar Excel</span>
+                    </button>
                 </div>
                 <div class="filter-summary" th:if="${tanqueId != null and tanqueId != ''}" th:text="${tanqueId} + ' - ' + ${#lists.size(lecturas)} + ' lecturas'">Tanque - 3 lecturas</div>
             </form>
