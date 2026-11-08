@@ -96,17 +96,22 @@ public class LecturaController {
             return new ResponseEntity<>("Tanque no encontrado con id: " + request.getTanqueId(), HttpStatus.NOT_FOUND);
         }
 
+        double distanciaReferenciaLleno = tanque.getDistanciaLlenoCm() == null
+                ? 0.0
+                : tanque.getDistanciaLlenoCm();
+        double distanciaMaxima = tanque.getAlturaMaxCm() + distanciaReferenciaLleno;
         ProcesamientoMuestrasService.ResultadoMuestras resultado;
         try {
             resultado = procesamientoMuestrasService.procesar(
-                    request.getDistanciasCm(), request.getDistanciaCm(), tanque.getAlturaMaxCm());
+                    request.getDistanciasCm(), request.getDistanciaCm(), distanciaMaxima);
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest().body(exception.getMessage());
         }
 
-        double nivelCm = tanque.getAlturaMaxCm() - resultado.distanciaMedianaCm();
+        double nivelCm = calculoVolumenService.calcularNivelCm(
+                resultado.distanciaMedianaCm(), distanciaReferenciaLleno, tanque.getAlturaMaxCm());
         double volumenLitros = calculoVolumenService.calcularVolumenLitros(
-                nivelCm, tanque.getDiametroCm());
+                nivelCm, tanque.getAlturaMaxCm(), tanque.getVolumenMax());
 
         LecturaNivel lectura = new LecturaNivel();
         lectura.setTanqueId(request.getTanqueId());
@@ -116,6 +121,7 @@ public class LecturaController {
         lectura.setTieneMuestrasAtipicas(resultado.tieneMuestrasAtipicas());
         lectura.setNivelCm(nivelCm);
         lectura.setVolumenLitros(volumenLitros);
+        lectura.setCalibrada(tanque.getDistanciaLlenoCm() != null);
         lectura.setTimestamp(request.getTimestamp() != null ? request.getTimestamp() : LocalDateTime.now());
         lectura.setEsAnomalia(false);
 

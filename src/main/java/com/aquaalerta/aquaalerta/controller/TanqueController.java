@@ -6,6 +6,7 @@ import com.aquaalerta.aquaalerta.service.TanqueService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping("/tanques")
@@ -31,8 +32,26 @@ public class TanqueController {
     }
 
     @PostMapping("/guardar")
-    public String guardar(@ModelAttribute Tanque tanque) {
-        tanqueService.guardar(tanque);
+    public String guardar(@ModelAttribute Tanque tanque, RedirectAttributes redirectAttributes) {
+        try {
+            tanqueService.guardar(tanque);
+            redirectAttributes.addFlashAttribute("mensajeTanque", "Se guardó la configuración del tanque.");
+        } catch (IllegalArgumentException exception) {
+            redirectAttributes.addFlashAttribute("errorTanque", exception.getMessage());
+            redirectAttributes.addFlashAttribute("tanque", tanque);
+        }
+        return "redirect:/tanques";
+    }
+
+    @PostMapping("/{id}/registrar-lleno")
+    public String registrarLleno(@PathVariable String id, RedirectAttributes redirectAttributes) {
+        try {
+            tanqueService.registrarLleno(id);
+            redirectAttributes.addFlashAttribute("mensajeTanque",
+                    "Listo. Se guardó la lectura actual como referencia de tanque lleno.");
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            redirectAttributes.addFlashAttribute("errorTanque", exception.getMessage());
+        }
         return "redirect:/tanques";
     }
 
@@ -50,4 +69,3 @@ public class TanqueController {
         return "redirect:/tanques";
     }
 }
-

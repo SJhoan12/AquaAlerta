@@ -3,6 +3,8 @@ package com.aquaalerta.aquaalerta;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
+
 @Document(collection = "tanques")
 public class Tanque {
 
@@ -11,11 +13,12 @@ public class Tanque {
 
     private String nombre;
     private double alturaMaxCm;
-    private double diametroCm;
     private double volumenMax;
-    private double umbralMinimo;
-    private double margenInformativoPct;
-    private double umbralAnomaliaPct;
+    private Double distanciaLlenoCm;
+    private LocalDateTime referenciaLlenoActualizada;
+    private double umbralMinimo = 5;
+    private double margenInformativoPct = 20;
+    private double umbralAnomaliaPct = 50;
     private String usuarioId;
 
     public Tanque() {
@@ -45,20 +48,28 @@ public class Tanque {
         this.alturaMaxCm = alturaMaxCm;
     }
 
-    public double getDiametroCm() {
-        return diametroCm;
-    }
-
-    public void setDiametroCm(double diametroCm) {
-        this.diametroCm = diametroCm;
-    }
-
     public double getVolumenMax() {
         return volumenMax;
     }
 
     public void setVolumenMax(double volumenMax) {
         this.volumenMax = volumenMax;
+    }
+
+    public Double getDistanciaLlenoCm() {
+        return distanciaLlenoCm;
+    }
+
+    public void setDistanciaLlenoCm(Double distanciaLlenoCm) {
+        this.distanciaLlenoCm = distanciaLlenoCm;
+    }
+
+    public LocalDateTime getReferenciaLlenoActualizada() {
+        return referenciaLlenoActualizada;
+    }
+
+    public void setReferenciaLlenoActualizada(LocalDateTime referenciaLlenoActualizada) {
+        this.referenciaLlenoActualizada = referenciaLlenoActualizada;
     }
 
     public double getUmbralMinimo() {

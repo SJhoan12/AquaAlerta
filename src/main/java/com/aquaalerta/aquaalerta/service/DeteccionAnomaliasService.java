@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +20,14 @@ import java.util.Optional;
 
 @Service
 public class DeteccionAnomaliasService {
+
+    private static final int VENTANA_MINUTOS = 3;
+    private static final int MAX_LECTURAS_RECIENTES = 6;
+    private static final int MAX_SEPARACION_MINUTOS = 5;
+    private static final int EVALUACIONES_CONSECUTIVAS_REQUERIDAS = 2;
+    private static final double CAIDA_MINIMA_CM = 0.1;
+    private static final double FRACCION_MINIMA_ALTURA = 0.005;
+    private static final double PESO_ACTUALIZACION_PATRON = 0.10;
 
     private final LecturaNivelRepository lecturaRepo;
     private final PatronConsumoRepository patronRepo;
@@ -33,25 +41,6 @@ public class DeteccionAnomaliasService {
         this.alertaRepo = alertaRepo;
     }
 
-    // PROTECCION 1 (recomendacion profe): revision de extremos.
-    // Si el volumen cae mas del 30% respecto a la lectura anterior
-    // en un solo salto, se marca como sospechosa y se evalua aparte.
-    private boolean esSaltoSospechoso(String tanqueId, LecturaNivel actual) {
-        List<LecturaNivel> todas = lecturaRepo.findByTanqueIdOrderByTimestampDesc(tanqueId);
-        LecturaNivel anterior = todas.stream()
-                .filter(l -> l.getTimestamp() != null && actual.getTimestamp() != null)
-                .filter(l -> l.getTimestamp().isBefore(actual.getTimestamp()))
-                .filter(l -> !l.getId().equals(actual.getId()))
-                .findFirst()
-                .orElse(null);
-        if (anterior == null || anterior.getVolumenLitros() <= 0) {
-            return false;
-        }
-        double caida = (anterior.getVolumenLitros() - actual.getVolumenLitros())
-                / anterior.getVolumenLitros();
-        return caida > 0.30;
-    }
-
     public void evaluar(Tanque tanque, LecturaNivel guardada) {
         if (guardada.isTieneMuestrasAtipicas()) {
             return;
@@ -63,122 +52,157 @@ public class DeteccionAnomaliasService {
         String dia = diaSemana(ts);
         FranjaHoraria franja = FranjaHoraria.de(ts);
         String rango = rangoFranja(franja);
-        boolean saltoSospechoso = esSaltoSospechoso(tanque.getId(), guardada);
-        double actual = consumoFranja(tanque.getId(), ts);
-        Optional<PatronConsumo> patron = patronRepo
-                .findByTanqueIdAndDiaSemanaAndFranja(tanque.getId(), dia, franja.getCodigo());
-        if (patron.isEmpty() || patron.get().getConsumoReferenciaLitros() <= 0) {
-            acumularBase(tanque.getId(), dia, franja.getCodigo(), actual, ts);
-            if (saltoSospechoso && !existeHoy(tanque.getId(), ts.toLocalDate(), rango)) {
-                alertaRepo.save(nueva(tanque.getId(), "INFORMATIVO",
-                        "Salto brusco de nivel en la franja " + rango
-                                + ". Lectura marcada como sospechosa, pendiente de mas datos.",
-                        0, tanque.getMargenInformativoPct(), ts));
-            }
+        PatronConsumo patron = patronRepo
+                .findByTanqueIdAndDiaSemanaAndFranja(tanque.getId(), dia, franja.getCodigo())
+                .orElseGet(() -> nuevoPatron(tanque.getId(), dia, franja.getCodigo()));
+        LocalDateTime ultimaEvaluacion = patron.getUltimaEvaluacionTasa();
+        if (ultimaEvaluacion != null && !ts.isAfter(ultimaEvaluacion)) {
             return;
         }
-        double ref = patron.get().getConsumoReferenciaLitros();
-        double desv = ((actual - ref) / ref) * 100.0;
+        if (guardada.getTimestamp() == null) {
+            guardada.setTimestamp(ts);
+        }
+
+        Optional<Double> tasaActual = calcularTasaConsumo(
+                lecturaRepo.findByTanqueIdOrderByTimestampDesc(tanque.getId()),
+                guardada, ts, tanque.getAlturaMaxCm(), tanque.getReferenciaLlenoActualizada());
+        patron.setUltimaEvaluacionTasa(ts);
+        patron.setActualizado(ts);
+
+        if (tasaActual.isEmpty()) {
+            patron.setEvaluacionesAnomalasConsecutivas(0);
+            patronRepo.save(patron);
+            return;
+        }
+
+        double tasa = tasaActual.get();
+        double ref = patron.getTasaReferenciaPctNivelPorMinuto();
+        if (patron.getMuestrasTasaReferenciaNivel() == 0 || ref <= 0) {
+            registrarReferenciaInicial(patron, tasa);
+            patronRepo.save(patron);
+            return;
+        }
+
+        double desv = ((tasa - ref) / ref) * 100.0;
         double margen = tanque.getMargenInformativoPct();
         double umbral = tanque.getUmbralAnomaliaPct();
-        String desc = "Consumo de " + red(actual) + " L en la franja " + rango
-                + ", " + red(desv) + "% sobre el promedio habitual del "
-                + dia.toLowerCase(Locale.ROOT) + " (" + red(ref) + " L)";
-        int nFranja = contarLecturasFranja(tanque.getId(), ts);
-        boolean pocosDatos = nFranja < 3;
-        if (actual < 25) {
-            acumularBase(tanque.getId(), dia, franja.getCodigo(), actual, ts);
-            return;
-        }
-        if (desv > umbral && !pocosDatos) {
-            if (existeHoy(tanque.getId(), ts.toLocalDate(), rango)) {
-                return;
+        String desc = "El nivel bajó " + red(desv) + "% más rápido de lo habitual del "
+                + dia.toLowerCase(Locale.ROOT) + " en la franja " + rango
+                + " (referencia: " + red(ref) + "% de la altura por minuto)";
+
+        if (desv > umbral) {
+            boolean evaluacionConsecutiva = ultimaEvaluacion != null
+                    && java.time.Duration.between(ultimaEvaluacion, ts).getSeconds()
+                    <= MAX_SEPARACION_MINUTOS * 60L;
+            patron.setEvaluacionesAnomalasConsecutivas(evaluacionConsecutiva
+                    ? Math.min(EVALUACIONES_CONSECUTIVAS_REQUERIDAS,
+                            patron.getEvaluacionesAnomalasConsecutivas() + 1)
+                    : 1);
+            if (patron.getEvaluacionesAnomalasConsecutivas()
+                    >= EVALUACIONES_CONSECUTIVAS_REQUERIDAS
+                    && !existeAlertaHoy(tanque.getId(), ts.toLocalDate(), rango, "ANOMALIA_CONSUMO")) {
+                alertaRepo.save(nueva(tanque.getId(), "ANOMALIA_CONSUMO", desc, desv, umbral, ts));
+                guardada.setEsAnomalia(true);
+                lecturaRepo.save(guardada);
             }
-            alertaRepo.save(nueva(tanque.getId(), "ANOMALIA_CONSUMO", desc, desv, umbral, ts));
-            guardada.setEsAnomalia(true);
-            lecturaRepo.save(guardada);
-        } else if (desv > margen) {
-            if (existeHoy(tanque.getId(), ts.toLocalDate(), rango)) {
-                return;
-            }
-            // Si hay pocos datos o salto sospechoso aislado, se queda en INFORMATIVO.
-            alertaRepo.save(nueva(tanque.getId(), "INFORMATIVO", desc, desv, margen, ts));
         } else {
-            acumularBase(tanque.getId(), dia, franja.getCodigo(), actual, ts);
-        }
-    }
-
-    private double consumoFranja(String tanqueId, LocalDateTime ts) {
-        FranjaHoraria f = FranjaHoraria.de(ts);
-        LocalDate fecha = ts.toLocalDate();
-        LocalDateTime ini = LocalDateTime.of(fecha, LocalTime.of(horaIni(f), 0));
-        LocalDateTime fin = finFranja(fecha, f);
-        List<LecturaNivel> todas = lecturaRepo.findByTanqueIdOrderByTimestampDesc(tanqueId);
-        List<LecturaNivel> lista = todas.stream()
-                .filter(l -> l.getTimestamp() != null)
-                .filter(l -> !l.getTimestamp().isAfter(ts))
-                .sorted(Comparator.comparing(LecturaNivel::getTimestamp))
-                .toList();
-        double consumo = 0;
-        for (int i = 1; i < lista.size(); i++) {
-            LocalDateTime tAnt = lista.get(i - 1).getTimestamp();
-            LocalDateTime tAct = lista.get(i).getTimestamp();
-            if (tAct.isBefore(ini) || tAct.isAfter(fin)) {
-                continue;
-            }
-            if (tAnt.isBefore(ini.minusHours(12))) {
-                continue;
-            }
-            long minutos = java.time.Duration.between(tAnt, tAct).toMinutes();
-            if (minutos > 120) {
-                continue;
-            }
-            double diff = lista.get(i - 1).getVolumenLitros() - lista.get(i).getVolumenLitros();
-            if (diff > 0) {
-                consumo += diff;
+            patron.setEvaluacionesAnomalasConsecutivas(0);
+            if (desv > margen
+                    && !existeAlertaHoy(tanque.getId(), ts.toLocalDate(), rango, "INFORMATIVO")) {
+                alertaRepo.save(nueva(tanque.getId(), "INFORMATIVO", desc, desv, margen, ts));
+            } else if (desv <= margen) {
+                actualizarPatron(patron, tasa);
             }
         }
-        return consumo;
+        patronRepo.save(patron);
     }
 
-    private int contarLecturasFranja(String tanqueId, LocalDateTime ts) {
-        FranjaHoraria f = FranjaHoraria.de(ts);
-        LocalDate fecha = ts.toLocalDate();
-        LocalDateTime ini = LocalDateTime.of(fecha, LocalTime.of(horaIni(f), 0));
-        LocalDateTime fin = finFranja(fecha, f);
-        return (int) lecturaRepo.findByTanqueIdOrderByTimestampDesc(tanqueId).stream()
-                .filter(l -> l.getTimestamp() != null)
-                .filter(l -> !l.getTimestamp().isAfter(ts))
-                .filter(l -> !l.getTimestamp().isBefore(ini) && !l.getTimestamp().isAfter(fin))
-                .count();
+    private PatronConsumo nuevoPatron(String tanqueId, String dia, String franja) {
+        PatronConsumo patron = new PatronConsumo();
+        patron.setTanqueId(tanqueId);
+        patron.setDiaSemana(dia);
+        patron.setFranja(franja);
+        return patron;
     }
 
-    private void acumularBase(String tanqueId, String dia, String franja, double actual, LocalDateTime ts) {
-        Optional<PatronConsumo> opt = patronRepo.findByTanqueIdAndDiaSemanaAndFranja(tanqueId, dia, franja);
-        PatronConsumo p = opt.orElseGet(PatronConsumo::new);
-        p.setTanqueId(tanqueId);
-        p.setDiaSemana(dia);
-        p.setFranja(franja);
-        p.setConsumoReferenciaLitros(Math.max(actual, p.getConsumoReferenciaLitros()));
-        int sem = p.getSemanasConsideradas() + 1;
-        if (sem < 1) sem = 1;
-        if (sem > 4) sem = 4;
-        p.setSemanasConsideradas(sem);
-        p.setActualizado(ts);
-        patronRepo.save(p);
+    private void registrarReferenciaInicial(PatronConsumo patron, double tasa) {
+        patron.setTasaReferenciaPctNivelPorMinuto(tasa);
+        patron.setMuestrasTasaReferenciaNivel(1);
+        patron.setEvaluacionesAnomalasConsecutivas(0);
     }
 
-    private LocalDate primeraFecha(String tanqueId) {
-        return lecturaRepo.findByTanqueIdOrderByTimestampDesc(tanqueId).stream()
-                .filter(l -> l.getTimestamp() != null)
-                .map(l -> l.getTimestamp().toLocalDate())
-                .min(LocalDate::compareTo)
-                .orElse(null);
+    private void actualizarPatron(PatronConsumo patron, double tasa) {
+        double referencia = patron.getTasaReferenciaPctNivelPorMinuto();
+        double actualizacion = referencia
+                + PESO_ACTUALIZACION_PATRON * (tasa - referencia);
+        patron.setTasaReferenciaPctNivelPorMinuto(actualizacion);
+        patron.setMuestrasTasaReferenciaNivel(patron.getMuestrasTasaReferenciaNivel() + 1);
     }
 
-    private boolean existeHoy(String tanqueId, LocalDate fecha, String rango) {
+    private Optional<Double> calcularTasaConsumo(List<LecturaNivel> todas,
+                                                  LecturaNivel actual,
+                                                  LocalDateTime ts,
+                                                  double alturaMaximaCm,
+                                                  LocalDateTime referenciaLlenoActualizada) {
+        if (!Double.isFinite(alturaMaximaCm) || alturaMaximaCm <= 0) {
+            return Optional.empty();
+        }
+        LocalDateTime inicioVentana = ts.minusMinutes(VENTANA_MINUTOS);
+        List<LecturaNivel> recientes = new ArrayList<>(todas.stream()
+                .filter(lectura -> lectura.getTimestamp() != null)
+                .filter(lectura -> referenciaLlenoActualizada == null
+                        || lectura.getTimestamp().isAfter(referenciaLlenoActualizada))
+                .filter(lectura -> !lectura.isTieneMuestrasAtipicas())
+                .filter(lectura -> !lectura.getTimestamp().isAfter(ts))
+                .filter(lectura -> !lectura.getTimestamp().isBefore(inicioVentana))
+                .toList());
+        if (recientes.stream().noneMatch(lectura -> actual.getId() == null
+                ? lectura == actual
+                : actual.getId().equals(lectura.getId()))) {
+            recientes.add(actual);
+        }
+        recientes.sort(Comparator.comparing(LecturaNivel::getTimestamp));
+        if (recientes.size() > MAX_LECTURAS_RECIENTES) {
+            recientes = new ArrayList<>(recientes.subList(
+                    recientes.size() - MAX_LECTURAS_RECIENTES, recientes.size()));
+        }
+        if (recientes.size() < 2) {
+            return Optional.empty();
+        }
+
+        int inicioSegmento = recientes.size() - 1;
+        for (int i = recientes.size() - 1; i > 0; i--) {
+            long segundos = java.time.Duration.between(
+                    recientes.get(i - 1).getTimestamp(), recientes.get(i).getTimestamp()).getSeconds();
+            if (segundos > MAX_SEPARACION_MINUTOS * 60L) {
+                break;
+            }
+            inicioSegmento = i - 1;
+        }
+        List<LecturaNivel> segmento = recientes.subList(inicioSegmento, recientes.size());
+        if (segmento.size() < 2) {
+            return Optional.empty();
+        }
+
+        LecturaNivel primera = segmento.get(0);
+        LecturaNivel ultima = segmento.get(segmento.size() - 1);
+        double minutos = java.time.Duration.between(
+                primera.getTimestamp(), ultima.getTimestamp()).toMillis() / 60_000.0;
+        if (minutos <= 0) {
+            return Optional.empty();
+        }
+        double nivelBajadoCm = primera.getNivelCm() - ultima.getNivelCm();
+        double caidaMinimaCm = Math.max(CAIDA_MINIMA_CM, alturaMaximaCm * FRACCION_MINIMA_ALTURA);
+        if (nivelBajadoCm < caidaMinimaCm) {
+            return Optional.empty();
+        }
+        return Optional.of(nivelBajadoCm / alturaMaximaCm * 100.0 / minutos);
+    }
+
+    private boolean existeAlertaHoy(String tanqueId, LocalDate fecha, String rango, String tipo) {
         return alertaRepo.findByTanqueId(tanqueId).stream().anyMatch(a ->
                 a.getTimestamp() != null && a.getTimestamp().toLocalDate().equals(fecha)
+                        && tipo.equals(a.getTipo())
                         && a.getDescripcion() != null && a.getDescripcion().contains(rango));
     }
 
@@ -206,20 +230,6 @@ public class DeteccionAnomaliasService {
         return "DOMINGO";
     }
 
-    private int horaIni(FranjaHoraria f) {
-        if (f == FranjaHoraria.MADRUGADA) return 0;
-        if (f == FranjaHoraria.MANANA) return 6;
-        if (f == FranjaHoraria.TARDE) return 12;
-        return 18;
-    }
-
-    private LocalDateTime finFranja(LocalDate fecha, FranjaHoraria f) {
-        if (f == FranjaHoraria.MADRUGADA) return LocalDateTime.of(fecha, LocalTime.of(6, 0));
-        if (f == FranjaHoraria.MANANA) return LocalDateTime.of(fecha, LocalTime.of(12, 0));
-        if (f == FranjaHoraria.TARDE) return LocalDateTime.of(fecha, LocalTime.of(18, 0));
-        return fecha.plusDays(1).atStartOfDay();
-    }
-
     private String rangoFranja(FranjaHoraria f) {
         if (f == FranjaHoraria.MADRUGADA) return "00:00-06:00";
         if (f == FranjaHoraria.MANANA) return "06:00-12:00";
@@ -227,7 +237,7 @@ public class DeteccionAnomaliasService {
         return "18:00-24:00";
     }
 
-    private long red(double v) {
-        return Math.round(v);
+    private String red(double valor) {
+        return String.format(Locale.ROOT, "%.3f", valor);
     }
 }

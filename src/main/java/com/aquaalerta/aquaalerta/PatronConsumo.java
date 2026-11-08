@@ -13,6 +13,10 @@ public class PatronConsumo {
     private String diaSemana;
     private String franja;
     private double consumoReferenciaLitros;
+    private double tasaReferenciaPctNivelPorMinuto;
+    private int muestrasTasaReferenciaNivel;
+    private int evaluacionesAnomalasConsecutivas;
+    private LocalDateTime ultimaEvaluacionTasa;
     private int semanasConsideradas;
     private LocalDateTime actualizado;
 
@@ -57,6 +61,38 @@ public class PatronConsumo {
 
     public void setConsumoReferenciaLitros(double consumoReferenciaLitros) {
         this.consumoReferenciaLitros = consumoReferenciaLitros;
+    }
+
+    public double getTasaReferenciaPctNivelPorMinuto() {
+        return tasaReferenciaPctNivelPorMinuto;
+    }
+
+    public void setTasaReferenciaPctNivelPorMinuto(double tasaReferenciaPctNivelPorMinuto) {
+        this.tasaReferenciaPctNivelPorMinuto = tasaReferenciaPctNivelPorMinuto;
+    }
+
+    public int getMuestrasTasaReferenciaNivel() {
+        return muestrasTasaReferenciaNivel;
+    }
+
+    public void setMuestrasTasaReferenciaNivel(int muestrasTasaReferenciaNivel) {
+        this.muestrasTasaReferenciaNivel = muestrasTasaReferenciaNivel;
+    }
+
+    public int getEvaluacionesAnomalasConsecutivas() {
+        return evaluacionesAnomalasConsecutivas;
+    }
+
+    public void setEvaluacionesAnomalasConsecutivas(int evaluacionesAnomalasConsecutivas) {
+        this.evaluacionesAnomalasConsecutivas = evaluacionesAnomalasConsecutivas;
+    }
+
+    public LocalDateTime getUltimaEvaluacionTasa() {
+        return ultimaEvaluacionTasa;
+    }
+
+    public void setUltimaEvaluacionTasa(LocalDateTime ultimaEvaluacionTasa) {
+        this.ultimaEvaluacionTasa = ultimaEvaluacionTasa;
     }
 
     public int getSemanasConsideradas() {

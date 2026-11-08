@@ -60,7 +60,7 @@
                             <tr>
                                 <th>Fecha y hora</th>
                                 <th>Nivel (cm)</th>
-                                <th>Volumen (litros)</th>
+                                <th>Volumen aprox. (litros)</th>
                                 <th style="text-align: center;">Estado</th>
                             </tr>
                         </thead>
@@ -68,7 +68,7 @@
                             <tr th:each="l : ${lecturas}">
                                 <td class="date-cell" th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'dd/MM/yyyy, HH:mm') : '-'}">9 oct 2026, 10:30</td>
                                 <td class="num-cell" th:text="${#numbers.formatInteger(l.nivelCm, 1, 'POINT')} + ' cm'">138 cm</td>
-                                <td class="num-cell" th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">1.068 L</td>
+                                <td class="num-cell" th:text="'≈ ' + ${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">≈ 0 L</td>
                                 <td class="status-cell">
                                     <span class="badge status-badge badge-red" th:if="${l.esAnomalia}">Anomalía de consumo</span>
                                     <span class="badge status-badge badge-yellow" th:if="${!l.esAnomalia and l.tieneMuestrasAtipicas}">Muestra atípica del sensor</span>
@@ -92,7 +92,7 @@
                     <span class="hint">Hasta los 10-30 de cada día · En litros</span>
                     <div class="mini-bars" th:if="${!#lists.isEmpty(lecturas)}">
                         <div class="mini-bar" th:each="l, it : ${lecturas}" th:if="${it.index < 5}">
-                            <b th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">0</b>
+                            <b th:text="'≈ ' + ${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">≈ 0 L</b>
                             <span class="col" th:style="'height:' + ${40 + it.index * 12} + 'px'"></span>
                             <span th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'dd/MM') : '-'}">-</span>
                         </div>
@@ -110,7 +110,7 @@
                         <div class="bar-row">
                             <span class="b-label">Hoy</span>
                             <div class="bar"><span style="width: 60%;"></span></div>
-                            <b th:text="${#numbers.formatInteger(lecturas[0].volumenLitros, 1, 'POINT')} + ' L'">0 L</b>
+                            <b th:text="'≈ ' + ${#numbers.formatInteger(lecturas[0].volumenLitros, 1, 'POINT')} + ' L'">≈ 0 L</b>
                         </div>
                         <div class="bar-row">
                             <span class="b-label">Habitual</span>

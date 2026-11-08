@@ -43,9 +43,9 @@
 <span class="sensor-sync" th:if="${ultimaSincronizacion != null}" th:text="'Última sincronización: ' + ${#temporals.format(ultimaSincronizacion, 'dd/MM/yyyy HH:mm')}">Última sincronización</span>
 <span class="sensor-sync" th:if="${ultimaSincronizacion == null}">Última sincronización: no disponible</span>
 </div>
-<span class="hint">Nivel actual</span>
+<span class="hint">Nivel estimado</span>
 <div class="level-big"><span th:text="${#numbers.formatInteger(sel.nivelCm, 1, 'POINT')}">0</span><small> cm</small></div>
-<div class="level-liters"><span th:text="${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')}">0</span> litros disponibles</div>
+<div class="level-liters">≈ <span th:text="${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')}">0</span> litros disponibles</div>
 <div class="level-cap">Capacidad total: <span th:text="${#numbers.formatInteger(sel.volumenMax, 1, 'POINT')}">0</span> L</div>
 <div class="badge-row">
 <span class="badge badge-green" th:if="${sel.estado == 'NORMAL'}">Normal</span>
@@ -53,7 +53,7 @@
 <span class="badge badge-red" th:if="${sel.estado != 'NORMAL' and sel.estado != 'BAJO'}" th:text="${sel.estado}">Estado</span>
 </div>
 <div class="progress"><span th:style="'width:' + ${#numbers.formatInteger(sel.porcentaje, 1)} + '%'"></span></div>
-<div class="hint hint-mt"><span th:text="${#numbers.formatInteger(sel.porcentaje, 1)}">0</span>% de la capacidad</div>
+<div class="hint hint-mt">≈ <span th:text="${#numbers.formatInteger(sel.porcentaje, 1)}">0</span>% de altura</div>
 </div>
 <div class="card">
 <h3>Ultimas lecturas</h3>
@@ -65,7 +65,7 @@
 <tr th:each="l, it : ${ultimas}" th:if="${it.index &lt; 5}">
 <td th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'HH:mm') : '-'}">--:--</td>
 <td th:text="${#numbers.formatInteger(l.nivelCm, 1, 'POINT')} + ' cm'">0 cm</td>
-<td th:text="${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">0 L</td>
+<td th:text="'≈ ' + ${#numbers.formatInteger(l.volumenLitros, 1, 'POINT')} + ' L'">≈ 0 L</td>
 <td>
 <span class="badge badge-red" th:if="${l.esAnomalia}">Anomalía de consumo</span>
 <span class="badge badge-yellow" th:if="${!l.esAnomalia and l.tieneMuestrasAtipicas}">Muestra atípica</span>
@@ -80,10 +80,10 @@
 <!--BLOQUE2-->
 <div class="grid grid-2 grid-gap-top">
 <div class="card">
-<h3>Consumo de la franja</h3>
-<span class="hint">Actual frente a lo habitual</span>
+<h3>Consumo aproximado</h3>
+<span class="hint">Cambio estimado del volumen entre lecturas</span>
 <div th:if="${#lists.size(ultimas) >= 2}">
-<div class="consume-big"><span th:text="${#numbers.formatInteger(ultimas[0].volumenLitros - ultimas[#lists.size(ultimas) - 1].volumenLitros, 1, 'POINT')}">0</span><small> L</small></div>
+<div class="consume-big">≈ <span th:text="${#numbers.formatInteger(ultimas[0].volumenLitros - ultimas[#lists.size(ultimas) - 1].volumenLitros, 1, 'POINT')}">0</span><small> L</small></div>
 <div class="bar-row"><span class="b-label">Reciente</span><div class="bar"><span style="width: 60%;"></span></div></div>
 <div class="bar-row"><span class="b-label">Habitual</span><div class="bar"><span class="hist" style="width: 40%;"></span></div></div>
 <p class="hint hint-mt">El valor habitual se calcula con tu historial por franja.</p>
@@ -95,7 +95,7 @@
 <span class="hint">Resumen rapido</span>
 <div class="stat-list">
 <div class="stat-line"><span>Nivel</span><b th:text="${#numbers.formatInteger(sel.nivelCm, 1, 'POINT')} + ' cm'">0 cm</b></div>
-<div class="stat-line"><span>Volumen</span><b th:text="${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')} + ' L'">0 L</b></div>
+<div class="stat-line"><span>Volumen aprox.</span><b th:text="'≈ ' + ${#numbers.formatInteger(sel.volumenLitros, 1, 'POINT')} + ' L'">≈ 0 L</b></div>
 <div class="stat-line"><span>Lecturas</span><b th:text="${#lists.size(ultimas)}">0</b></div>
 </div>
 </div>

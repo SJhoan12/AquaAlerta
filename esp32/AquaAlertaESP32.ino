@@ -3,8 +3,8 @@
 
 const char* WIFI_SSID = "FAMILIA SILVA";
 const char* WIFI_PASSWORD = "silvacarrasco";
-const char* SERVER_URL = "http://192.168.15.22:8080/api/lecturas";
-const char* TANQUE_ID = "6ad972e46a83f73340d2c31";
+const char* SERVER_URL = "http://192.168.15.7:8080/api/lecturas";
+const char* TANQUE_ID = "6ad972e46a83f733402d2c31";
 const char* SENSOR_ID = "esp32-01";
 
 const int TRIG_PIN = 23;
@@ -56,6 +56,10 @@ bool readDistanceCm(float& distanceCm) {
 }
 
 void sendReadings() {
+    if (!connectToWifi()) {
+        return;
+    }
+
     float distances[SAMPLE_COUNT];
     int validCount = 0;
 
@@ -74,10 +78,6 @@ void sendReadings() {
 
     if (validCount < 3) {
         Serial.println("Se necesitan al menos 3 muestras validas; no se envia la lectura.");
-        return;
-    }
-
-    if (!connectToWifi()) {
         return;
     }
 
@@ -124,7 +124,6 @@ void setup() {
     digitalWrite(TRIG_PIN, LOW);
 
     delay(1000);
-    connectToWifi();
     sendReadings();
     lastSendMs = millis();
 }
@@ -132,7 +131,7 @@ void setup() {
 void loop() {
     if (millis() - lastSendMs >= SEND_INTERVAL_MS) {
         sendReadings();
-        lastSendMs = millis()c;
+        lastSendMs = millis();
     }
     delay(100);
 }

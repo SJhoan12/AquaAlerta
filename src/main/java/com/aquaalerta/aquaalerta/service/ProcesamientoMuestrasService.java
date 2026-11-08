@@ -11,9 +11,9 @@ public class ProcesamientoMuestrasService {
 
     public ResultadoMuestras procesar(List<Double> muestrasDistanciaCm,
                                       Double distanciaCm,
-                                      double alturaMaximaCm) {
-        if (!Double.isFinite(alturaMaximaCm) || alturaMaximaCm <= 0) {
-            throw new IllegalArgumentException("La altura máxima del tanque debe ser mayor que cero.");
+                                      double distanciaMaximaCm) {
+        if (!Double.isFinite(distanciaMaximaCm) || distanciaMaximaCm <= 0) {
+            throw new IllegalArgumentException("La distancia máxima configurada del tanque debe ser mayor que cero.");
         }
 
         List<Double> muestras = muestrasDistanciaCm == null || muestrasDistanciaCm.isEmpty()
@@ -25,9 +25,9 @@ public class ProcesamientoMuestrasService {
         if (muestras.stream().anyMatch(muestra -> muestra == null
                 || !Double.isFinite(muestra)
                 || muestra < 0
-                || muestra > alturaMaximaCm)) {
+                || muestra > distanciaMaximaCm)) {
             throw new IllegalArgumentException(
-                    "Todas las distancias deben ser números entre cero y la altura máxima del tanque.");
+                    "Todas las distancias deben estar entre cero y la distancia máxima configurada del tanque.");
         }
 
         double mediana = mediana(muestras);

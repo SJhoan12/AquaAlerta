@@ -1,9 +1,12 @@
 package com.aquaalerta.aquaalerta.service;
 
 import com.aquaalerta.aquaalerta.Tanque;
+import com.aquaalerta.aquaalerta.LecturaNivel;
+import com.aquaalerta.aquaalerta.repository.LecturaNivelRepository;
 import com.aquaalerta.aquaalerta.repository.TanqueRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,21 +14,53 @@ import java.util.Optional;
 public class TanqueService {
 
     private final TanqueRepository tanqueRepository;
+    private final LecturaNivelRepository lecturaNivelRepository;
 
-    public TanqueService(TanqueRepository tanqueRepository) {
+    public TanqueService(TanqueRepository tanqueRepository,
+                         LecturaNivelRepository lecturaNivelRepository) {
         this.tanqueRepository = tanqueRepository;
+        this.lecturaNivelRepository = lecturaNivelRepository;
     }
 
     public Tanque guardar(Tanque tanque) {
+        if (!Double.isFinite(tanque.getAlturaMaxCm()) || tanque.getAlturaMaxCm() <= 0) {
+            throw new IllegalArgumentException("Ingresa una altura mayor que cero.");
+        }
+        if (!Double.isFinite(tanque.getVolumenMax()) || tanque.getVolumenMax() <= 0) {
+            throw new IllegalArgumentException("Ingresa la capacidad en litros indicada por el fabricante.");
+        }
         if (tanque.getId() == null || tanque.getId().isBlank()) {
             tanque.setId(null);
-        }
-        if (tanque.getAlturaMaxCm() > 0 && tanque.getDiametroCm() > 0) {
-            double radio = tanque.getDiametroCm() / 2.0;
-            double volumenMax = Math.PI * radio * radio * tanque.getAlturaMaxCm() / 1000.0;
-            tanque.setVolumenMax(volumenMax);
+        } else {
+            Tanque anterior = tanqueRepository.findById(tanque.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("No se encontró el tanque que intentas editar."));
+            tanque.setUsuarioId(anterior.getUsuarioId());
+            if (Double.compare(anterior.getAlturaMaxCm(), tanque.getAlturaMaxCm()) == 0) {
+                tanque.setDistanciaLlenoCm(anterior.getDistanciaLlenoCm());
+                tanque.setReferenciaLlenoActualizada(anterior.getReferenciaLlenoActualizada());
+            }
         }
         return tanqueRepository.save(tanque);
+    }
+
+    public void registrarLleno(String tanqueId) {
+        Tanque tanque = tanqueRepository.findById(tanqueId)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el tanque seleccionado."));
+        LecturaNivel lectura = lecturaNivelRepository
+                .findTopByTanqueIdOrderByTimestampDesc(tanqueId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Aún no hay lecturas de este tanque. Enciende el sensor y vuelve a intentarlo."));
+        LocalDateTime ahora = LocalDateTime.now();
+        if (lectura.getTimestamp() == null
+                || lectura.getTimestamp().isBefore(ahora.minusMinutes(5))
+                || lectura.getTimestamp().isAfter(ahora)
+                || lectura.isTieneMuestrasAtipicas()) {
+            throw new IllegalStateException(
+                    "La última lectura no es reciente o no es confiable. Espera una lectura válida y vuelve a intentarlo.");
+        }
+        tanque.setDistanciaLlenoCm(lectura.getDistanciaCm());
+        tanque.setReferenciaLlenoActualizada(ahora);
+        tanqueRepository.save(tanque);
     }
 
     public List<Tanque> listarTodos() {

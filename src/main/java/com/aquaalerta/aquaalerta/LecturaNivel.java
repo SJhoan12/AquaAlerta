@@ -18,6 +18,7 @@ public class LecturaNivel {
     private boolean tieneMuestrasAtipicas;
     private double nivelCm;
     private double volumenLitros;
+    private Boolean calibrada;
     private LocalDateTime timestamp;
     private boolean esAnomalia;
 
@@ -88,6 +89,14 @@ public class LecturaNivel {
 
     public void setVolumenLitros(double volumenLitros) {
         this.volumenLitros = volumenLitros;
+    }
+
+    public Boolean getCalibrada() {
+        return calibrada;
+    }
+
+    public void setCalibrada(Boolean calibrada) {
+        this.calibrada = calibrada;
     }
 
     public LocalDateTime getTimestamp() {
