@@ -9,7 +9,7 @@ const char* SENSOR_ID = "esp32-01";
 
 const int TRIG_PIN = 23;
 const int ECHO_PIN = 18;
-const int SAMPLE_COUNT = 5;
+const int SAMPLE_COUNT = 9;
 const unsigned long SEND_INTERVAL_MS = 30000;
 const unsigned long ECHO_TIMEOUT_US = 30000;
 
