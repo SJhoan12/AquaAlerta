@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial - AquaAlerta</title>
-    <link rel="stylesheet" th:href="@{/style.css}">
+    <link rel="stylesheet" th:href="@{/style.css(v=7)}">
+    <link rel="stylesheet" th:href="@{/theme.css(v=1)}">
+    <script th:src="@{/theme.js(v=1)}"></script>
 </head>
 <body>
     <div class="layout">
@@ -44,7 +46,7 @@
                         <span>Descargar Excel</span>
                     </button>
                 </div>
-                <div class="filter-summary" th:if="${tanqueId != null and tanqueId != ''}" th:text="${tanqueId} + ' - ' + ${#lists.size(lecturas)} + ' lecturas'">Tanque - 3 lecturas</div>
+                <div class="filter-summary" th:if="${tanqueId != null and tanqueId != ''}" th:text="${tanqueId} + ' - ' + ${totalLecturas} + ' lecturas'">Tanque - 3 lecturas</div>
             </form>
             <div class="card">
                 <div class="card-head">
@@ -52,7 +54,7 @@
                         <h3 class="card-title">Lecturas registradas</h3>
                         <span class="card-hint">Fecha, distancia, nivel, volumen y estado.</span>
                     </div>
-                    <span class="count-badge" th:text="${#lists.size(lecturas)} + ' lecturas'">3 lecturas</span>
+                    <span class="count-badge" th:text="${#lists.size(lecturas)} + ' de ' + ${totalLecturas} + ' lecturas'">10 de 30 lecturas</span>
                 </div>
                 <div class="table-wrap">
                     <table class="data-table">
@@ -82,44 +84,36 @@
                     </table>
                 </div>
                 <div class="table-foot">
-                    <span class="foot-text" th:text="'Mostrando ' + ${#lists.size(lecturas)} + ' lecturas'">Mostrando 3 lecturas</span>
+                    <span class="foot-text" th:text="'Mostrando ' + ${#lists.size(lecturas)} + ' de ' + ${totalLecturas} + ' lecturas'">Mostrando 10 de 30 lecturas</span>
+                    <a class="btn btn-primary btn-sm"
+                       th:if="${limite < totalLecturas}"
+                       th:href="@{/historial(tanqueId=${tanqueId}, desde=${desde}, hasta=${hasta}, limite=${siguienteLimite})}">Ver más</a>
                 </div>
             </div>
 
             <div class="report-grid">
                 <div class="card">
-                    <h3>Consumo por día</h3>
-                    <span class="hint">Hasta los 10-30 de cada día · En litros</span>
-                    <div class="mini-bars" th:if="${!#lists.isEmpty(lecturas)}">
-                        <div class="mini-bar" th:each="l, it : ${lecturas}" th:if="${it.index < 5}">
+                    <h3>Volumen en lecturas recientes</h3>
+                    <span class="hint">Volumen aproximado de cada lectura; no representa consumo diario.</span>
+                    <div class="stat-list" th:if="${!#lists.isEmpty(lecturas)}">
+                        <div class="stat-line" th:each="l, it : ${lecturas}" th:if="${it.index < 5}">
+                            <span th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'dd/MM HH:mm') : '-'}">-</span>
                             <b th:text="'≈ ' + ${#numbers.formatDecimal(l.volumenLitros, 1, 1)} + ' L'">≈ 0,0 L</b>
-                            <span class="col" th:style="'height:' + ${40 + it.index * 12} + 'px'"></span>
-                            <span th:text="${l.timestamp != null ? #temporals.format(l.timestamp, 'dd/MM') : '-'}">-</span>
                         </div>
                     </div>
-                    <p class="hint" th:if="${#lists.isEmpty(lecturas)}">Todavía no hay datos para graficar.</p>
-                    <div class="legend">
-                        <span><i style="background: var(--blue);"></i> Registrado</span>
-                        <span><i style="background: #cbd5e1;"></i> Habitual: 200 L</span>
-                    </div>
+                    <p class="hint" th:if="${#lists.isEmpty(lecturas)}">Todavía no hay lecturas para mostrar.</p>
                 </div>
                 <div class="card">
-                    <h3>Consumo por horario</h3>
-                    <span class="hint">Hoy frente a lo habitual · En litros</span>
-                    <div th:if="${#lists.size(lecturas) >= 2}">
-                        <div class="bar-row">
-                            <span class="b-label">Hoy</span>
-                            <div class="bar"><span style="width: 60%;"></span></div>
-                            <b th:text="'≈ ' + ${#numbers.formatDecimal(lecturas[0].volumenLitros, 1, 1)} + ' L'">≈ 0,0 L</b>
+                    <h3>Variación entre lecturas</h3>
+                    <span class="hint">Cambio neto entre las dos lecturas más recientes del tanque seleccionado.</span>
+                    <div th:if="${unSoloTanque and #lists.size(lecturas) >= 2}">
+                        <div class="consume-big">
+                            ≈ <span th:text="${#numbers.formatDecimal(lecturas[1].volumenLitros - lecturas[0].volumenLitros, 1, 1)}">0,0</span><small> L</small>
                         </div>
-                        <div class="bar-row">
-                            <span class="b-label">Habitual</span>
-                            <div class="bar"><span class="hist" style="width: 40%;"></span></div>
-                            <b>200 L</b>
-                        </div>
-                        <p class="hint" style="margin-top: 10px;">Los aumentos se interpretan como recarga y no suman al consumo.</p>
+                        <p class="hint" style="margin-top: 10px;">Un valor positivo indica una bajada neta; uno negativo indica un aumento o recarga. No es un promedio habitual.</p>
                     </div>
-                    <p class="hint" th:if="${#lists.size(lecturas) < 2}">Necesitas al menos 2 lecturas para generar el reporte.</p>
+                    <p class="hint" th:if="${!unSoloTanque}">Selecciona un solo tanque para calcular la variación.</p>
+                    <p class="hint" th:if="${unSoloTanque and #lists.size(lecturas) < 2}">Necesitas al menos 2 lecturas de ese tanque.</p>
                 </div>
             </div>
         </main>

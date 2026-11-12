@@ -25,9 +25,13 @@ public class HomeController {
 
     @GetMapping("/login")
     public String mostrarLogin(@RequestParam(required = false) String registrado,
+                               @RequestParam(required = false) String mfa,
                                Model model) {
         if ("ok".equals(registrado)) {
             model.addAttribute("mensaje", "Cuenta creada. Ahora inicia sesión.");
+        }
+        if ("expired".equals(mfa)) {
+            model.addAttribute("error", "Se agotaron los intentos del segundo factor. Inicia sesión nuevamente.");
         }
         return "login";
     }
@@ -44,8 +48,13 @@ public class HomeController {
             if (previousSession != null) {
                 previousSession.invalidate();
             }
-            request.getSession(true).setAttribute("usuario", username);
-            return "redirect:/";
+            HttpSession session = request.getSession(true);
+            session.setAttribute("mfaPendingUserId", opt.get().getId());
+            session.setAttribute("csrfToken", java.util.UUID.randomUUID().toString());
+            boolean tieneSegundoFactor = opt.get().isTotpEnabled()
+                    && opt.get().getTotpSecretEncrypted() != null
+                    && !opt.get().getTotpSecretEncrypted().isBlank();
+            return tieneSegundoFactor ? "redirect:/mfa/verify" : "redirect:/mfa/setup";
         }
         model.addAttribute("error", "Usuario o contraseña incorrectos.");
         return "login";
@@ -74,15 +83,18 @@ public class HomeController {
             model.addAttribute("usuario", usuario);
             return "registro";
         }
+        usuario.setId(null);
         usuario.setPassword(passwordService.encode(usuario.getPassword()));
-        if (usuario.getRol() == null || usuario.getRol().isBlank()) {
-            usuario.setRol("USER");
-        }
+        usuario.setRol("USER");
+        usuario.setTotpEnabled(false);
+        usuario.setTotpSecretEncrypted(null);
+        usuario.setUltimoCodigoTotpHash(null);
+        usuario.setUltimoCodigoTotpAceptado(null);
         usuarioRepository.save(usuario);
         return "redirect:/login?registrado=ok";
     }
 
-    @GetMapping("/logout")
+    @PostMapping("/logout")
     public String logout(HttpSession session) {
         session.invalidate();
         return "redirect:/login";

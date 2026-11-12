@@ -1,15 +1,18 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include "wifi_config.h"
 
-const char* WIFI_SSID = "FAMILIA SILVA";
-const char* WIFI_PASSWORD = "silvacarrasco";
-const char* SERVER_URL = "http://192.168.15.7:8080/api/lecturas";
-const char* TANQUE_ID = "6ad972e46a83f733402d2c31";
+const char* ssid = AQUAALERTA_WIFI_SSID;
+const char* password = AQUAALERTA_WIFI_PASSWORD;
+const char* api_key = AQUAALERTA_SENSOR_API_KEY;
+const char* SERVER_URL = AQUAALERTA_SERVER_URL;
+const char* TANQUE_ID = "6af1f02f480fbb92b03a415c";
 const char* SENSOR_ID = "esp32-01";
 
 const int TRIG_PIN = 23;
 const int ECHO_PIN = 18;
-const int SAMPLE_COUNT = 9;
+const int SAMPLE_COUNT = 12;
 const unsigned long SEND_INTERVAL_MS = 30000;
 const unsigned long ECHO_TIMEOUT_US = 30000;
 
@@ -21,12 +24,12 @@ bool connectToWifi() {
     }
 
     Serial.print("Conectando a Wi-Fi");
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.begin(ssid, password);
     unsigned long startedAt = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - startedAt < 20000) {
         delay(500);
         Serial.print(".");
-    }
+    }   
     Serial.println();
 
     if (WiFi.status() != WL_CONNECTED) {
@@ -70,14 +73,14 @@ void sendReadings() {
         } else {
             Serial.println("Muestra sin eco valido; no se agrega al envio.");
         }
-        delay(100);
+        delay(80);
     }
 
     Serial.print("Muestras validas: ");
     Serial.println(validCount);
 
-    if (validCount < 3) {
-        Serial.println("Se necesitan al menos 3 muestras validas; no se envia la lectura.");
+    if (validCount < 5) {
+        Serial.println("Se necesitan al menos 5 muestras validas; no se envia la lectura.");
         return;
     }
 
@@ -98,13 +101,15 @@ void sendReadings() {
     Serial.print("Enviando: ");
     Serial.println(payload);
 
+    WiFiClient wifiClient;
     HTTPClient http;
-    if (!http.begin(SERVER_URL)) {
-        Serial.println("No se pudo iniciar la solicitud HTTP.");
-        return;
-    }
-
+    if (!http.begin(wifiClient, SERVER_URL)) {
+    Serial.println("No se pudo iniciar la solicitud HTTP.");
+    return;
+   }
+   
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-API-Key", api_key);
     int statusCode = http.POST(payload);
     if (statusCode > 0) {
         Serial.print("Respuesta HTTP: ");

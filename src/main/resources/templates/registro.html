@@ -5,15 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Registrarse - AquaAlerta</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script th:src="@{/theme.js(v=1)}"></script>
     <style>
         body { background: #f0f7ff; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .login-card { background: #fff; border-radius: 16px; padding: 40px 35px; box-shadow: 0 10px 30px rgba(0,0,0,.08); width: 100%; max-width: 420px; text-align: center; }
         .logo-icon { font-size: 48px; }
         .logo h1 { color: #1e3a5f; }
     </style>
+    <link rel="stylesheet" th:href="@{/theme.css(v=1)}">
 </head>
 <body>
 <div class="login-card">
+    <div class="auth-theme-toggle">
+        <button class="theme-toggle" type="button" aria-pressed="false"
+                aria-label="Cambiar a modo oscuro">
+            <span class="theme-icon" aria-hidden="true">☾</span>
+            <span class="theme-label">Modo oscuro</span>
+        </button>
+    </div>
     <div class="logo mb-3">
         <div class="logo-icon">💧</div>
         <h1>AquaAlerta</h1>
@@ -26,6 +35,7 @@
     <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
 
     <form th:action="@{/registro}" th:object="${usuario}" method="post" class="text-start">
+        <input type="hidden" name="_csrf" th:value="${session.csrfToken}">
         <div class="mb-3">
             <label class="form-label">Usuario</label>
             <input class="form-control" th:field="*{username}" placeholder="Elige un usuario" required>
@@ -38,7 +48,6 @@
             <label class="form-label">Contraseña</label>
             <input class="form-control" type="password" th:field="*{password}" placeholder="••••••••" required>
         </div>
-        <input type="hidden" th:field="*{rol}">
         <button type="submit" class="btn btn-primary w-100">Registrarse</button>
     </form>
 

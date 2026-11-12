@@ -9,7 +9,7 @@ import java.util.List;
 
 /**
  * CU06 + CU07: el ESP32 registra la lectura (RF06) y el backend
- * calcula/persiste nivel y volumen. Comunicación HTTP + WiFi (12.2).
+ * calcula/persiste nivel y volumen. Comunicación HTTPS + WiFi (12.2).
  * El ESP32 puede enviar varias distancias originales o una distancia individual
  * para compatibilidad con versiones anteriores.
  */

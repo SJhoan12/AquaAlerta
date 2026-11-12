@@ -1,5 +1,6 @@
 package com.aquaalerta.aquaalerta.controller;
 
+import com.aquaalerta.aquaalerta.Alerta;
 import com.aquaalerta.aquaalerta.LecturaNivel;
 import com.aquaalerta.aquaalerta.repository.AlertaRepository;
 import com.aquaalerta.aquaalerta.repository.LecturaNivelRepository;
@@ -8,6 +9,7 @@ import com.aquaalerta.aquaalerta.service.ReporteLecturasExcelService;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import org.springframework.ui.ExtendedModelMap;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.ByteArrayInputStream;
@@ -68,6 +70,25 @@ class HistorialControllerTests {
                         "tanque-01",
                         LocalDate.of(2026, 10, 27),
                         LocalDate.of(2026, 10, 25)));
+    }
+
+    @Test
+    void showsTenReadingsInitiallyAndRecognizesSingleTankForVariation() {
+        List<LecturaNivel> lecturas = java.util.stream.IntStream.range(0, 15)
+                .mapToObj(index -> lectura(LocalDateTime.now().minusMinutes(index)))
+                .toList();
+        when(lecturaRepository.findAll()).thenReturn(lecturas);
+        when(alertaRepository.findByEstado("ACTIVA")).thenReturn(List.<Alerta>of());
+        when(tanqueRepository.findAll()).thenReturn(List.of());
+
+        ExtendedModelMap model = new ExtendedModelMap();
+        String vista = controller.historial(null, null, null, 10, model);
+
+        assertEquals("historial", vista);
+        assertEquals(10, ((List<?>) model.get("lecturas")).size());
+        assertEquals(15, model.get("totalLecturas"));
+        assertEquals(15, model.get("siguienteLimite"));
+        assertTrue((Boolean) model.get("unSoloTanque"));
     }
 
     private LecturaNivel lectura(LocalDateTime timestamp) {

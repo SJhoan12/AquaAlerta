@@ -9,10 +9,14 @@ import com.aquaalerta.aquaalerta.service.DeteccionAnomaliasService;
 import com.aquaalerta.aquaalerta.service.ProcesamientoMuestrasService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,17 +28,20 @@ public class LecturaController {
     private final DeteccionAnomaliasService deteccionService;
     private final CalculoVolumenService calculoVolumenService;
     private final ProcesamientoMuestrasService procesamientoMuestrasService;
+    private final String sensorApiKey;
 
     public LecturaController(TanqueRepository tanqueRepository,
                              LecturaNivelRepository lecturaNivelRepository,
                              DeteccionAnomaliasService deteccionService,
                              CalculoVolumenService calculoVolumenService,
-                             ProcesamientoMuestrasService procesamientoMuestrasService) {
+                             ProcesamientoMuestrasService procesamientoMuestrasService,
+                             @Value("${aquaalerta.sensor.api-key:}") String sensorApiKey) {
         this.tanqueRepository = tanqueRepository;
         this.lecturaNivelRepository = lecturaNivelRepository;
         this.deteccionService = deteccionService;
         this.calculoVolumenService = calculoVolumenService;
         this.procesamientoMuestrasService = procesamientoMuestrasService;
+        this.sensorApiKey = sensorApiKey;
     }
 
     public static class LecturaRequest {
@@ -86,7 +93,19 @@ public class LecturaController {
     }
 
     @PostMapping("/api/lecturas")
-    public ResponseEntity<?> recibirLectura(@RequestBody LecturaRequest request) {
+    public ResponseEntity<?> recibirLectura(
+            @RequestHeader(name = "X-API-Key", required = false) String providedApiKey,
+            @RequestBody LecturaRequest request) {
+        if (sensorApiKey.isBlank()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("La autenticación del sensor no está configurada.");
+        }
+        if (providedApiKey == null || !MessageDigest.isEqual(
+                sensorApiKey.getBytes(StandardCharsets.UTF_8),
+                providedApiKey.getBytes(StandardCharsets.UTF_8))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Clave de sensor ausente o inválida.");
+        }
         if (request.getTanqueId() == null || request.getTanqueId().isBlank()) {
             return ResponseEntity.badRequest().body("Debe especificar tanqueId.");
         }

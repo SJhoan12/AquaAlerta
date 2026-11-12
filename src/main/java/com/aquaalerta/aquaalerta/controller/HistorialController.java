@@ -45,10 +45,30 @@ public class HistorialController {
     public String historial(@RequestParam(required = false) String tanqueId,
                             @RequestParam(required = false) LocalDate desde,
                             @RequestParam(required = false) LocalDate hasta,
+                            @RequestParam(defaultValue = "10") int limite,
                             Model model) {
         validarRangoFechas(desde, hasta);
-        List<LecturaNivel> lecturas = buscarLecturas(tanqueId, desde, hasta);
+        List<LecturaNivel> todasLasLecturas = buscarLecturas(tanqueId, desde, hasta);
+        int limiteVisible = Math.max(10, limite);
+        boolean unSoloTanque = tanqueId != null && !tanqueId.isBlank();
+        if (!unSoloTanque) {
+            long tanquesEnResultados = todasLasLecturas.stream()
+                    .map(LecturaNivel::getTanqueId)
+                    .filter(id -> id != null && !id.isBlank())
+                    .distinct()
+                    .limit(2)
+                    .count();
+            unSoloTanque = tanquesEnResultados == 1;
+        }
+        List<LecturaNivel> lecturas = todasLasLecturas.stream()
+                .limit(limiteVisible)
+                .toList();
         model.addAttribute("lecturas", lecturas);
+        model.addAttribute("totalLecturas", todasLasLecturas.size());
+        model.addAttribute("limite", limiteVisible);
+        model.addAttribute("siguienteLimite",
+                (int) Math.min((long) limiteVisible + 10, todasLasLecturas.size()));
+        model.addAttribute("unSoloTanque", unSoloTanque);
         model.addAttribute("tanqueId", tanqueId == null ? "" : tanqueId);
         model.addAttribute("desde", desde);
         model.addAttribute("hasta", hasta);

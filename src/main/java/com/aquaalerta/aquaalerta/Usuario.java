@@ -3,6 +3,8 @@ package com.aquaalerta.aquaalerta;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.LocalDateTime;
+
 @Document(collection = "usuarios")
 public class Usuario {
 
@@ -12,6 +14,10 @@ public class Usuario {
     private String password;
     private String email;
     private String rol;
+    private String totpSecretEncrypted;
+    private boolean totpEnabled;
+    private String ultimoCodigoTotpHash;
+    private LocalDateTime ultimoCodigoTotpAceptado;
 
     public Usuario() {
     }
@@ -54,5 +60,37 @@ public class Usuario {
 
     public void setRol(String rol) {
         this.rol = rol;
+    }
+
+    public String getTotpSecretEncrypted() {
+        return totpSecretEncrypted;
+    }
+
+    public void setTotpSecretEncrypted(String totpSecretEncrypted) {
+        this.totpSecretEncrypted = totpSecretEncrypted;
+    }
+
+    public boolean isTotpEnabled() {
+        return totpEnabled;
+    }
+
+    public void setTotpEnabled(boolean totpEnabled) {
+        this.totpEnabled = totpEnabled;
+    }
+
+    public String getUltimoCodigoTotpHash() {
+        return ultimoCodigoTotpHash;
+    }
+
+    public void setUltimoCodigoTotpHash(String ultimoCodigoTotpHash) {
+        this.ultimoCodigoTotpHash = ultimoCodigoTotpHash;
+    }
+
+    public LocalDateTime getUltimoCodigoTotpAceptado() {
+        return ultimoCodigoTotpAceptado;
+    }
+
+    public void setUltimoCodigoTotpAceptado(LocalDateTime ultimoCodigoTotpAceptado) {
+        this.ultimoCodigoTotpAceptado = ultimoCodigoTotpAceptado;
     }
 }

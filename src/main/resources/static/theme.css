@@ -1,0 +1,134 @@
+:root {
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --blue-soft: #172b4d;
+    --bg: #0b0f14;
+    --card: #151b23;
+    --border: #303946;
+    --text: #e5e7eb;
+    --muted: #a0aec0;
+    --green-soft: #123523;
+    --yellow-soft: #3a2f13;
+    --red-soft: #3d1c22;
+    --shadow: 0 4px 14px rgba(0, 0, 0, .24);
+}
+
+:root[data-theme="dark"] body {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.theme-toggle:hover { border-color: var(--blue); }
+.theme-toggle:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.theme-icon { font-size: 17px; line-height: 1; }
+
+.sidebar > .theme-toggle { width: 100%; margin: 0 0 12px; }
+
+:root[data-theme="dark"] .side-nav a { color: #cbd5e1; }
+:root[data-theme="dark"] .side-nav a.active { color: #fff; }
+:root[data-theme="dark"] .side-foot button:hover .logout-icon { background: #57242b; }
+:root[data-theme="dark"] .progress,
+:root[data-theme="dark"] .bar { background: #303946; }
+:root[data-theme="dark"] .badge-gray { background: #293341; }
+:root[data-theme="dark"] table.data td { border-bottom-color: var(--border); }
+:root[data-theme="dark"] table.data tbody tr:hover { background: #1d2631; }
+:root[data-theme="dark"] .input,
+:root[data-theme="dark"] select.input,
+:root[data-theme="dark"] .filter-input {
+    background: #10161e;
+    border-color: var(--border);
+    color: var(--text);
+}
+:root[data-theme="dark"] .input::placeholder,
+:root[data-theme="dark"] .filter-input::placeholder { color: #8995a5; }
+:root[data-theme="dark"] .btn-outline,
+:root[data-theme="dark"] .tank-actions > .btn-edit {
+    background: #172b4d;
+    border-color: #31517f;
+    color: #bfdbfe;
+}
+:root[data-theme="dark"] .tank-actions > .btn-edit:hover { background: #203b63; }
+:root[data-theme="dark"] .alert-item { background: var(--card); }
+:root[data-theme="dark"] .empty { border-color: var(--border); }
+:root[data-theme="dark"] .bar > span.hist,
+:root[data-theme="dark"] .mini-bar .col.alt { background: #455264; }
+:root[data-theme="dark"] .crumbs .sep { color: #778397; }
+:root[data-theme="dark"] .user-chip .avatar { background: #203b63; color: #bfdbfe; }
+
+:root[data-theme="dark"] body.login-body,
+:root[data-theme="dark"] body:has(.login-card),
+:root[data-theme="dark"] body:has(.mfa-card) { background: #0b0f14; }
+:root[data-theme="dark"] .login-card,
+:root[data-theme="dark"] .mfa-card {
+    background: #151b23;
+    color: var(--text);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .32);
+}
+:root[data-theme="dark"] .login-card h1,
+:root[data-theme="dark"] .login-card h2,
+:root[data-theme="dark"] .mfa-card h1 { color: #e5e7eb; }
+:root[data-theme="dark"] .login-card p,
+:root[data-theme="dark"] .mfa-card p,
+:root[data-theme="dark"] .text-muted { color: #a0aec0 !important; }
+:root[data-theme="dark"] .login-card .form-label,
+:root[data-theme="dark"] .mfa-card .form-label { color: #e5e7eb; }
+:root[data-theme="dark"] .login-card .form-control,
+:root[data-theme="dark"] .mfa-card .form-control {
+    background: #10161e;
+    border-color: var(--border);
+    color: var(--text);
+}
+:root[data-theme="dark"] .login-card .form-control::placeholder,
+:root[data-theme="dark"] .mfa-card .form-control::placeholder { color: #8995a5; }
+:root[data-theme="dark"] .mfa-card .alert-info {
+    background: #172b4d;
+    border-color: #31517f;
+    color: #bfdbfe;
+}
+:root[data-theme="dark"] .login-card a,
+:root[data-theme="dark"] .mfa-card a { color: #93c5fd; }
+
+.auth-theme-toggle {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 860px) {
+    .sidebar > .theme-toggle {
+        width: auto;
+        margin: 0 0 0 8px;
+        padding: 7px 9px;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar > .theme-toggle .theme-label { display: none; }
+    .sidebar > .theme-toggle { min-width: 40px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    body, .sidebar, .card, .login-card, .mfa-card {
+        transition: background-color .18s ease, color .18s ease, border-color .18s ease;
+    }
+}

@@ -63,7 +63,7 @@ public class TanqueController {
         return "tanques";
     }
 
-    @GetMapping("/eliminar/{id}")
+    @PostMapping("/eliminar/{id}")
     public String eliminar(@PathVariable String id) {
         tanqueService.eliminarPorId(id);
         return "redirect:/tanques";

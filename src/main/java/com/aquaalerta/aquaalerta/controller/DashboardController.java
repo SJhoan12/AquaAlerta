@@ -36,8 +36,10 @@ public class DashboardController {
                 .findFirst().orElse(estados.isEmpty() ? null : estados.get(0));
 
         List<LecturaNivel> ultimas = new ArrayList<>();
+        int cantidadLecturas = 0;
         if (sel != null) {
             var todas = lecturaNivelRepository.findByTanqueIdOrderByTimestampDesc(sel.getTanqueId());
+            cantidadLecturas = todas.size();
             ultimas = todas.stream().limit(10).toList();
         }
         LocalDateTime ahora = LocalDateTime.now();
@@ -53,6 +55,7 @@ public class DashboardController {
         model.addAttribute("tanques", estados);
         model.addAttribute("sel", sel);
         model.addAttribute("ultimas", ultimas);
+        model.addAttribute("cantidadLecturas", cantidadLecturas);
         model.addAttribute("sensorConectado", sensorConectado);
         model.addAttribute("ultimaSincronizacion", ultimaSincronizacion);
         model.addAttribute("numAlertas", alertaRepository.findByEstado("ACTIVA").size());

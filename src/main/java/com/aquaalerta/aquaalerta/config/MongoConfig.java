@@ -1,6 +1,7 @@
 package com.aquaalerta.aquaalerta.config;
 
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
@@ -11,6 +12,7 @@ import org.springframework.data.mongodb.core.index.Index;
 public class MongoConfig {
 
     @Bean
+    @ConditionalOnProperty(name = "aquaalerta.mongo.indexes.enabled", havingValue = "true", matchIfMissing = true)
     public ApplicationRunner initIndexes(MongoTemplate mongoTemplate) {
         return args -> {
             mongoTemplate.indexOps("lecturasNivel")
