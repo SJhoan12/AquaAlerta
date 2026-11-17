@@ -89,14 +89,107 @@ class DeteccionAnomaliasServiceTests {
     }
 
     @Test
-    void faseUnoComparaRitmoActualConElPromedioDelMismoDia() {
+    void reglaNocturnaPromediaBloquesYConfirmaLaCaida() {
         TestContext context = new TestContext();
-        LocalDateTime inicioDia = LocalDateTime.of(2026, 10, 26, 8, 0);
-        LocalDateTime inicioConsumoLento = LocalDateTime.of(2026, 10, 26, 11, 50);
-        LocalDateTime inicioCaida = LocalDateTime.of(2026, 10, 26, 12, 1);
+        LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 1, 0);
         PatronConsumo patron = new PatronConsumo();
         when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
-                "tanque-01", "LUNES", "TARDE")).thenReturn(Optional.of(patron));
+                "tanque-01", "LUNES", "MADRUGADA")).thenReturn(Optional.of(patron));
+        when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
+
+        List<LecturaNivel> primeraLista = lecturasDescendentes(inicio, 22, 100.0, 0.125);
+        List<LecturaNivel> segundaLista = lecturasDescendentes(inicio, 23, 100.0, 0.125);
+        when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
+                .thenReturn(primeraLista, segundaLista);
+
+        context.service.evaluar(tanque(), ultimaLectura(primeraLista));
+        assertEquals(1, patron.getEvaluacionesAnomalasConsecutivas());
+
+        context.service.evaluar(tanque(), ultimaLectura(segundaLista));
+
+        verify(context.alertaRepository).save(argThat((Alerta alerta) ->
+                "ANOMALIA_CONSUMO".equals(alerta.getTipo())
+                        && "FUGA_NOCTURNA".equals(alerta.getReglaId())
+                        && "cm".equals(alerta.getUnidadMedida())
+                        && alerta.getDescripcion().contains("01:00-05:00")));
+    }
+
+    @Test
+    void reglaDeFugaLentaDetectaTendenciaAunqueNoSeaUnaCaidaRapida() {
+        TestContext context = new TestContext();
+        LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 10, 0);
+        PatronConsumo patron = new PatronConsumo();
+        when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
+                "tanque-01", "LUNES", "MANANA")).thenReturn(Optional.of(patron));
+        when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
+
+        List<LecturaNivel> primeraLista = lecturasDescendentes(inicio, 61, 100.0, 0.025);
+        List<LecturaNivel> segundaLista = lecturasDescendentes(inicio, 62, 100.0, 0.025);
+        when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
+                .thenReturn(primeraLista, segundaLista);
+
+        context.service.evaluar(tanque(), ultimaLectura(primeraLista));
+        assertEquals(1, patron.getEvaluacionesAnomalasConsecutivas());
+
+        context.service.evaluar(tanque(), ultimaLectura(segundaLista));
+
+        verify(context.alertaRepository).save(argThat((Alerta alerta) ->
+                "FUGA_LENTA".equals(alerta.getReglaId())
+                        && alerta.getDescripcion().contains("30 minutos")
+                        && "cm".equals(alerta.getUnidadMedida())));
+    }
+
+    @Test
+    void reglaDeCaidaBruscaExigeTresLecturasYRechazaUnPicoAislado() {
+        TestContext context = new TestContext();
+        LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 10, 0);
+        PatronConsumo patron = new PatronConsumo();
+        when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
+                "tanque-01", "LUNES", "MANANA")).thenReturn(Optional.of(patron));
+        when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
+
+        List<LecturaNivel> primeraLista = List.of(
+                lectura("brusca-1", 600.0 * 100.0 / 103.0, 100.0, inicio),
+                lectura("brusca-2", 600.0 * 98.4 / 103.0, 98.4, inicio.plusSeconds(30)),
+                lectura("brusca-3", 600.0 * 96.8 / 103.0, 96.8, inicio.plusSeconds(60)));
+        List<LecturaNivel> segundaLista = new ArrayList<>(primeraLista);
+        segundaLista.add(lectura("brusca-4", 600.0 * 95.2 / 103.0,
+                95.2, inicio.plusSeconds(90)));
+        when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
+                .thenReturn(primeraLista, segundaLista);
+
+        context.service.evaluar(tanque(), ultimaLectura(primeraLista));
+        assertEquals(1, patron.getEvaluacionesAnomalasConsecutivas());
+
+        context.service.evaluar(tanque(), ultimaLectura(segundaLista));
+
+        verify(context.alertaRepository).save(argThat((Alerta alerta) ->
+                "CAIDA_BRUSCA".equals(alerta.getReglaId())
+                        && alerta.getDesviacionPorcentaje() >= 3.0
+                        && "cm".equals(alerta.getUnidadMedida())));
+
+        TestContext ruido = new TestContext();
+        when(ruido.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
+                "tanque-01", "LUNES", "MANANA")).thenReturn(Optional.of(new PatronConsumo()));
+        List<LecturaNivel> spike = List.of(
+                lectura("spike-1", 600.0 * 100.0 / 103.0, 100.0, inicio),
+                lectura("spike-2", 600.0 * 96.0 / 103.0, 96.0, inicio.plusSeconds(30)),
+                lectura("spike-3", 600.0 * 100.0 / 103.0, 100.0, inicio.plusSeconds(60)));
+        when(ruido.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
+                .thenReturn(spike);
+        ruido.service.evaluar(tanque(), ultimaLectura(spike));
+        verify(ruido.alertaRepository, never()).save(any());
+    }
+
+    @Test
+    void faseUnoComparaRitmoActualConElPromedioDelMismoDia() {
+        TestContext context = new TestContext();
+        LocalDateTime inicioDia = LocalDateTime.of(2026, 10, 26, 9, 0);
+        LocalDateTime inicioConsumoLento = LocalDateTime.of(2026, 10, 26, 9, 50);
+        LocalDateTime inicioCaida = LocalDateTime.of(2026, 10, 26, 10, 1);
+        PatronConsumo patron = new PatronConsumo();
+        when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
+                "tanque-01", "LUNES", "MANANA")).thenReturn(Optional.of(patron));
         when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
 
         List<LecturaNivel> primeraLista = combinar(
@@ -247,6 +340,20 @@ class DeteccionAnomaliasServiceTests {
             double volumen = volumenInicial - litrosPorMinuto * (i * 0.5);
             double nivel = alturaMaxima * volumen / 600.0;
             lecturas.add(lectura("lectura-" + timestamp, volumen, nivel, timestamp));
+        }
+        return lecturas;
+    }
+
+    private static List<LecturaNivel> lecturasDescendentes(LocalDateTime inicio,
+                                                            int cantidad,
+                                                            double nivelInicial,
+                                                            double caidaCada30Segundos) {
+        List<LecturaNivel> lecturas = new ArrayList<>();
+        for (int i = 0; i < cantidad; i++) {
+            double nivel = nivelInicial - i * caidaCada30Segundos;
+            double volumen = 600.0 * nivel / 103.0;
+            lecturas.add(lectura("descenso-" + i, volumen, nivel,
+                    inicio.plusSeconds(i * 30L)));
         }
         return lecturas;
     }

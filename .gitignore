@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Credenciales locales del firmware ESP32
+esp32/wifi_config.h
+esp32/AquaAlertaESP32/wifi_config.h
+
+# Variables locales para Docker
+.env
+.env.*
+!.env.example

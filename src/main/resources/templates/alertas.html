@@ -11,7 +11,7 @@
 <div class="topbar"><div><div class="page-title">Alertas</div><div class="page-sub">Informativos y anomalías de consumo.</div></div></div>
 <div class="stat-row">
 <div class="card stat"><div class="num" style="color:var(--red)" th:text="${#lists.size(activas)}">0</div><div class="lbl">Activas</div></div>
-<div class="card stat"><div class="num" style="color:var(--yellow)" th:text="${#lists.size(activas)}">0</div><div class="lbl">Informativos</div></div>
+<div class="card stat"><div class="num" style="color:var(--yellow)" th:text="${cantidadInformativos}">0</div><div class="lbl">Informativos</div></div>
 <div class="card stat"><div class="num" style="color:var(--green)" th:text="${#lists.size(resueltas)}">0</div><div class="lbl">Resueltas</div></div>
 </div>
 <div class="card"><h3>Activas</h3><span class="hint">Requieren tu atención</span>
@@ -19,7 +19,11 @@
 <div class="alert-item" th:each="a : ${activas}" th:classappend="${a.tipo == 'ANOMALIA_CONSUMO'} ? ' anomalia' : ' informativo'">
 <div class="a-top"><span class="badge badge-red" th:if="${a.tipo == 'ANOMALIA_CONSUMO'}">Anomalía de consumo</span><span class="badge badge-yellow" th:unless="${a.tipo == 'ANOMALIA_CONSUMO'}" th:text="${a.tipo}">Informativo</span><span class="hint" th:text="${a.timestamp != null ? #temporals.format(a.timestamp,'dd/MM/yyyy HH:mm:ss') : ''}"></span></div>
 <div class="a-desc" th:text="${a.descripcion}">Descripción</div>
-<div class="a-meta">Tanque <span th:text="${a.tanqueId}"></span> · Desviación <span th:text="${#numbers.formatDecimal(a.desviacionPorcentaje, 1, 0)}"></span>% (umbral <span th:text="${#numbers.formatDecimal(a.umbralAplicadoPct, 1, 0)}"></span>%)</div>
+<div class="a-meta">Tanque <span th:text="${a.tanqueId}"></span>
+<span th:if="${a.unidadMedida == '%'}"> · Desviación <span th:text="${#numbers.formatDecimal(a.desviacionPorcentaje, 1, 1)}"></span>% (umbral <span th:text="${#numbers.formatDecimal(a.umbralAplicadoPct, 1, 1)}"></span>%)</span>
+<span th:if="${a.unidadMedida == 'cm'}"> · Caída <span th:text="${#numbers.formatDecimal(a.desviacionPorcentaje, 1, 1)}"></span> cm (umbral <span th:text="${#numbers.formatDecimal(a.umbralAplicadoPct, 1, 1)}"></span> cm)</span>
+<span th:if="${a.unidadMedida == 'L/min'}"> · Velocidad de caída <span th:text="${#numbers.formatDecimal(a.desviacionPorcentaje, 1, 1)}"></span> L/min (umbral <span th:text="${#numbers.formatDecimal(a.umbralAplicadoPct, 1, 1)}"></span> L/min)</span>
+</div>
 <form th:if="${session.rol == 'ADMIN'}" th:action="@{'/alertas/resolver/' + ${a.id}}" method="post" style="margin-top:10px"><input type="hidden" name="_csrf" th:value="${session.csrfToken}"><button class="btn btn-green btn-sm">Marcar como resuelta</button></form>
 </div></div>
 <div class="card" style="margin-top:16px"><h3>Resueltas</h3><span class="hint">Ya atendidas</span>

@@ -1,9 +1,12 @@
 package com.aquaalerta.aquaalerta.controller;
 
+import com.aquaalerta.aquaalerta.Alerta;
 import com.aquaalerta.aquaalerta.repository.AlertaRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Controller
 @RequestMapping("/alertas")
@@ -17,9 +20,13 @@ public class AlertaController {
 
     @GetMapping
     public String bandeja(Model model) {
-        model.addAttribute("activas", alertaRepository.findByEstado("ACTIVA"));
+        List<Alerta> activas = alertaRepository.findByEstado("ACTIVA");
+        model.addAttribute("activas", activas);
         model.addAttribute("resueltas", alertaRepository.findByEstado("RESUELTA"));
-        model.addAttribute("numAlertas", alertaRepository.findByEstado("ACTIVA").size());
+        model.addAttribute("numAlertas", activas.size());
+        model.addAttribute("cantidadInformativos", activas.stream()
+                .filter(alerta -> "INFORMATIVO".equals(alerta.getTipo()))
+                .count());
         return "alertas";
     }
 

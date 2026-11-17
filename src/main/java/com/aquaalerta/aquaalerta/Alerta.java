@@ -14,6 +14,8 @@ public class Alerta {
     private String descripcion;
     private double desviacionPorcentaje;
     private double umbralAplicadoPct;
+    private String unidadMedida;
+    private String reglaId;
     private LocalDateTime timestamp;
     private String estado;
     private boolean resuelta;
@@ -67,6 +69,22 @@ public class Alerta {
 
     public void setUmbralAplicadoPct(double umbralAplicadoPct) {
         this.umbralAplicadoPct = umbralAplicadoPct;
+    }
+
+    public String getUnidadMedida() {
+        return unidadMedida == null ? "%" : unidadMedida;
+    }
+
+    public void setUnidadMedida(String unidadMedida) {
+        this.unidadMedida = unidadMedida;
+    }
+
+    public String getReglaId() {
+        return reglaId;
+    }
+
+    public void setReglaId(String reglaId) {
+        this.reglaId = reglaId;
     }
 
     public LocalDateTime getTimestamp() {

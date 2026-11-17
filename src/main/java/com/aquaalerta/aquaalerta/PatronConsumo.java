@@ -16,6 +16,7 @@ public class PatronConsumo {
     private double tasaReferenciaPctNivelPorMinuto;
     private int muestrasTasaReferenciaNivel;
     private int evaluacionesAnomalasConsecutivas;
+    private String reglaAnomalaEnConfirmacion;
     private LocalDateTime ultimaEvaluacionTasa;
     private int semanasConsideradas;
     private LocalDateTime actualizado;
@@ -85,6 +86,14 @@ public class PatronConsumo {
 
     public void setEvaluacionesAnomalasConsecutivas(int evaluacionesAnomalasConsecutivas) {
         this.evaluacionesAnomalasConsecutivas = evaluacionesAnomalasConsecutivas;
+    }
+
+    public String getReglaAnomalaEnConfirmacion() {
+        return reglaAnomalaEnConfirmacion;
+    }
+
+    public void setReglaAnomalaEnConfirmacion(String reglaAnomalaEnConfirmacion) {
+        this.reglaAnomalaEnConfirmacion = reglaAnomalaEnConfirmacion;
     }
 
     public LocalDateTime getUltimaEvaluacionTasa() {

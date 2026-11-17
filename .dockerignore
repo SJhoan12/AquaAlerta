@@ -1,0 +1,11 @@
+.git
+.gitignore
+.vscode
+.idea
+target
+build
+.env
+.env.*
+!.env.example
+**/wifi_config.h
+*.log
