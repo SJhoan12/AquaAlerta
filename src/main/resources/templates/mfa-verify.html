@@ -22,7 +22,7 @@
         </button>
     </div>
     <h1 class="h3">Verificación en dos pasos</h1>
-    <p>Ingresa el código de seis dígitos de tu app autenticadora.</p>
+    <p>Abre Google Authenticator, busca la cuenta de AquaAlerta e ingresa su código actual de seis dígitos. Si todavía no configuraste la app, vuelve a iniciar sesión y completa primero la activación del segundo factor.</p>
     <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
     <form th:action="@{/mfa/verify}" method="post">
         <input type="hidden" name="_csrf" th:value="${session.csrfToken}">

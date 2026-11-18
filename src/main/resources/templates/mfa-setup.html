@@ -23,17 +23,26 @@
         </button>
     </div>
     <h1 class="h3">Activa la autenticación en dos pasos</h1>
-    <p>En tu app autenticadora, agrega una cuenta TOTP de forma manual con esta clave. Se requiere el código de seis dígitos para completar la configuración.</p>
+    <p>Tu cuenta ya está creada. Este paso vincula una app autenticadora para generar el código que protegerá tus próximos inicios de sesión.</p>
+    <ol class="mb-3">
+        <li>Instala <a href="https://play.google.com/store/apps/details?id=com.google.android.apps.authenticator2"
+                      target="_blank" rel="noopener noreferrer">Google Authenticator desde Google Play</a> (Android).</li>
+        <li>Abre la app, toca <strong>+</strong> y elige <strong>Introducir una clave de configuración</strong>.</li>
+        <li>Como nombre de la cuenta puedes poner <strong>AquaAlerta</strong>. Copia la clave de esta página y elige una clave basada en tiempo.</li>
+        <li>La app mostrará un código de seis dígitos. Escríbelo abajo antes de que cambie.</li>
+    </ol>
+    <p class="small text-muted">En iPhone, instala Google Authenticator desde App Store.</p>
     <div class="alert alert-info secret" th:text="${secreto}">CLAVE TOTP</div>
-    <p class="small text-muted">Guarda esta clave en un lugar seguro. No la compartas, permite generar los códigos de acceso.</p>
+    <p class="small text-muted">Esta clave permite generar tus códigos: no la compartas ni envíes una captura. Mantén esta página abierta hasta verificar el primer código.</p>
     <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
     <form th:action="@{/mfa/setup}" method="post">
         <input type="hidden" name="_csrf" th:value="${session.csrfToken}">
-        <label class="form-label" for="codigo">Código de la app</label>
+        <label class="form-label" for="codigo">Código actual de seis dígitos</label>
         <input class="form-control mb-3" id="codigo" name="codigo" inputmode="numeric"
                autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
         <button class="btn btn-primary w-100" type="submit">Verificar y activar</button>
     </form>
+    <p class="small text-muted mt-3 mb-0">Si el código no funciona, espera a que cambie y prueba el nuevo. Comprueba también que hayas agregado esta clave en la app.</p>
 </main>
 </body>
 </html>
