@@ -19,7 +19,7 @@ services:
     container_name: aquaalerta
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${AQUAALERTA_PORT:-8080}:8080"
+      - "${AQUAALERTA_PORT:-8080}:8080"
     depends_on:
       mongodb:
         condition: service_healthy
