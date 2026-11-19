@@ -1,141 +1,141 @@
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
+#include <WiFi.h>
 #include "wifi_config.h"
 
-const int PIN_TRIG = 23;
-const int PIN_ECHO = 18;
-
-const char* WIFI_SSID = AQUAALERTA_WIFI_SSID;
-const char* WIFI_PASSWORD = AQUAALERTA_WIFI_PASSWORD;
+const char* ssid = AQUAALERTA_WIFI_SSID;
+const char* password = AQUAALERTA_WIFI_PASSWORD;
+const char* api_key = AQUAALERTA_SENSOR_API_KEY;
 const char* SERVER_URL = AQUAALERTA_SERVER_URL;
-const char* API_KEY = AQUAALERTA_SENSOR_API_KEY;
-const char* TANQUE_ID = AQUAALERTA_TANQUE_ID;
+const char* TANQUE_ID = "6af1f02f480fbb92b03a415c";
 const char* SENSOR_ID = "esp32-01";
 
-const int MUESTRAS_POR_ENVIO = 12;
-const unsigned long INTERVALO_ENVIO_MS = 30000;
-const unsigned long INTERVALO_MUESTRA_MS = 120;
+const int TRIG_PIN = 23;
+const int ECHO_PIN = 18;
+const int SAMPLE_COUNT = 12;
+const unsigned long SEND_INTERVAL_MS = 30000;
+const unsigned long ECHO_TIMEOUT_US = 30000;
 
-void conectarWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+unsigned long lastSendMs = 0;
 
-  Serial.print("Conectando a Wi-Fi");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+bool connectToWifi() {
+    if (WiFi.status() == WL_CONNECTED) {
+        return true;
+    }
 
-  int intentos = 0;
-  while (WiFi.status() != WL_CONNECTED && intentos < 30) {
-    delay(500);
-    Serial.print(".");
-    intentos++;
-  }
-  Serial.println();
+    Serial.print("Conectando a Wi-Fi");
+    WiFi.begin(ssid, password);
+    unsigned long startedAt = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startedAt < 20000) {
+        delay(500);
+        Serial.print(".");
+    }
+    Serial.println();
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("Wi-Fi conectado. IP ESP32: ");
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("No se pudo conectar al Wi-Fi.");
+        return false;
+    }
+
+    Serial.print("Wi-Fi conectado. IP del ESP32: ");
     Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("No se pudo conectar al Wi-Fi.");
-  }
+    return true;
 }
 
-float medirDistanciaCm() {
-  digitalWrite(PIN_TRIG, LOW);
-  delayMicroseconds(5);
-  digitalWrite(PIN_TRIG, HIGH);
-  delayMicroseconds(15);
-  digitalWrite(PIN_TRIG, LOW);
+bool readDistanceCm(float& distanceCm) {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(3);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
 
-  unsigned long duracionUs = pulseIn(PIN_ECHO, HIGH, 35000UL);
-  if (duracionUs == 0) {
-    return -1.0f;
-  }
+    unsigned long duration = pulseIn(ECHO_PIN, HIGH, ECHO_TIMEOUT_US);
+    if (duration == 0) {
+        return false;
+    }
 
-  float distanciaCm = (duracionUs * 0.0343f) / 2.0f;
-  if (distanciaCm < 20.0f || distanciaCm > 450.0f) {
-    return -1.0f;
-  }
-  return distanciaCm;
+    distanceCm = duration * 0.0343f / 2.0f;
+    return distanceCm > 0 && distanceCm <= 400;
 }
 
-void enviarLecturas(const float* muestras, int cantidad) {
-  if (WiFi.status() != WL_CONNECTED) {
-    conectarWiFi();
-    if (WiFi.status() != WL_CONNECTED) return;
-  }
+void sendReadings() {
+    if (!connectToWifi()) {
+        return;
+    }
 
-  String payload = "{\"tanqueId\":\"" + String(TANQUE_ID) + "\",\"sensorId\":\"" + String(SENSOR_ID) + "\",\"distanciasCm\":[";
-  for (int i = 0; i < cantidad; i++) {
-    payload += String(muestras[i], 1);
-    if (i < cantidad - 1) payload += ",";
-  }
-  payload += "]}";
+    float distances[SAMPLE_COUNT];
+    int validCount = 0;
 
-  Serial.print("Enviando: ");
-  Serial.println(payload);
+    for (int i = 0; i < SAMPLE_COUNT; i++) {
+        float distanceCm;
+        if (readDistanceCm(distanceCm)) {
+            distances[validCount++] = distanceCm;
+        } else {
+            Serial.println("Muestra sin eco valido; no se agrega al envio.");
+        }
+        delay(80);
+    }
 
-  HTTPClient http;
-  WiFiClient clientHttp;
-  WiFiClientSecure clientHttps;
+    Serial.print("Muestras validas: ");
+    Serial.println(validCount);
 
-  String urlStr = String(SERVER_URL);
-  bool esHttps = urlStr.startsWith("https://");
+    if (validCount < 5) {
+        Serial.println("Se necesitan al menos 5 muestras validas; no se envia la lectura.");
+        return;
+    }
 
-  if (esHttps) {
-    clientHttps.setCACert(AQUAALERTA_ROOT_CA);
-    http.begin(clientHttps, SERVER_URL);
-  } else {
-    http.begin(clientHttp, SERVER_URL);
-  }
+    String payload = "{\"tanqueId\":\"";
+    payload += TANQUE_ID;
+    payload += "\",\"sensorId\":\"";
+    payload += SENSOR_ID;
+    payload += "\",\"distanciasCm\":[";
 
-  http.setTimeout(60000);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("X-API-Key", API_KEY);
+    for (int i = 0; i < validCount; i++) {
+        if (i > 0) {
+            payload += ",";
+        }
+        payload += String(distances[i], 1);
+    }
+    payload += "]}";
 
-  int codigoHttp = http.POST(payload);
-  Serial.print(esHttps ? "Respuesta HTTPS: " : "Respuesta HTTP: ");
-  Serial.println(codigoHttp);
+    Serial.print("Enviando: ");
+    Serial.println(payload);
 
-  if (codigoHttp > 0) {
-    Serial.println(http.getString());
-  } else {
-    Serial.print("Error conexion: ");
-    Serial.println(http.errorToString(codigoHttp));
-  }
+    WiFiClient wifiClient;
+    HTTPClient http;
+    if (!http.begin(wifiClient, SERVER_URL)) {
+        Serial.println("No se pudo iniciar la solicitud HTTP.");
+        return;
+    }
 
-  http.end();
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-API-Key", api_key);
+    int statusCode = http.POST(payload);
+    if (statusCode > 0) {
+        Serial.print("Respuesta HTTP: ");
+        Serial.println(statusCode);
+        Serial.println(http.getString());
+    } else {
+        Serial.print("Error HTTP: ");
+        Serial.println(http.errorToString(statusCode));
+    }
+    http.end();
 }
 
 void setup() {
-  Serial.begin(115200);
-  pinMode(PIN_TRIG, OUTPUT);
-  pinMode(PIN_ECHO, INPUT);
-  digitalWrite(PIN_TRIG, LOW);
+    Serial.begin(115200);
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    digitalWrite(TRIG_PIN, LOW);
 
-  conectarWiFi();
+    delay(1000);
+    sendReadings();
+    lastSendMs = millis();
 }
 
 void loop() {
-  float muestras[MUESTRAS_POR_ENVIO];
-  int validas = 0;
-
-  for (int i = 0; i < MUESTRAS_POR_ENVIO; i++) {
-    float cm = medirDistanciaCm();
-    if (cm > 0) {
-      muestras[validas++] = cm;
+    if (millis() - lastSendMs >= SEND_INTERVAL_MS) {
+        sendReadings();
+        lastSendMs = millis();
     }
-    delay(INTERVALO_MUESTRA_MS);
-  }
-
-  Serial.print("Muestras validas: ");
-  Serial.println(validas);
-
-  if (validas >= 3) {
-    enviarLecturas(muestras, validas);
-  } else {
-    Serial.println("No hubo suficientes muestras validas para enviar.");
-  }
-
-  delay(INTERVALO_ENVIO_MS);
+    delay(100);
 }
