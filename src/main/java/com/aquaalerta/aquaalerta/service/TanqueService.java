@@ -29,12 +29,18 @@ public class TanqueService {
         if (!Double.isFinite(tanque.getVolumenMax()) || tanque.getVolumenMax() <= 0) {
             throw new IllegalArgumentException("Ingresa la capacidad en litros indicada por el fabricante.");
         }
+        if (!Tanque.esCantidadPersonasValida(tanque.getNumeroPersonas())) {
+            throw new IllegalArgumentException("El número de personas debe estar entre 1 y 30.");
+        }
+        tanque.setNumeroPersonas(tanque.getNumeroPersonas());
+        tanque.setModoVigilancia(tanque.isModoVigilancia());
         if (tanque.getId() == null || tanque.getId().isBlank()) {
             tanque.setId(null);
         } else {
             Tanque anterior = tanqueRepository.findById(tanque.getId())
                     .orElseThrow(() -> new IllegalArgumentException("No se encontró el tanque que intentas editar."));
             tanque.setUsuarioId(anterior.getUsuarioId());
+            tanque.setModoVigilancia(anterior.isModoVigilancia());
             if (Double.compare(anterior.getAlturaMaxCm(), tanque.getAlturaMaxCm()) == 0) {
                 tanque.setDistanciaLlenoCm(anterior.getDistanciaLlenoCm());
                 tanque.setReferenciaLlenoActualizada(anterior.getReferenciaLlenoActualizada());
@@ -61,6 +67,13 @@ public class TanqueService {
         tanque.setDistanciaLlenoCm(lectura.getDistanciaCm());
         tanque.setReferenciaLlenoActualizada(ahora);
         tanqueRepository.save(tanque);
+    }
+
+    public Tanque alternarModoVigilancia(String tanqueId) {
+        Tanque tanque = tanqueRepository.findById(tanqueId)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró el tanque seleccionado."));
+        tanque.setModoVigilancia(!tanque.isModoVigilancia());
+        return tanqueRepository.save(tanque);
     }
 
     public List<Tanque> listarTodos() {

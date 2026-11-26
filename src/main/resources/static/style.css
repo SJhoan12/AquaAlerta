@@ -187,8 +187,12 @@ body {
 
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: 1.25fr .75fr; }
+.dashboard-columns { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 1.5rem; }
+.dashboard-column { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+.dashboard-compact table.data th { padding-top: 8px; padding-bottom: 8px; }
+.dashboard-compact table.data td { padding-top: 7px; padding-bottom: 7px; }
+.dashboard-compact .stat-line { padding-top: 8px; padding-bottom: 8px; }
 .grid-2eq { grid-template-columns: 1fr 1fr; }
-.grid-gap-top { margin-top: 16px; }
 .trend-card { margin-top: 16px; }
 .chart-box { width: 100%; overflow: hidden; margin-top: 10px; }
 .chart-box canvas { width: 100%; height: 170px; display: block; }
@@ -340,6 +344,23 @@ table.data tbody tr:hover { background: #f8fafc; }
 .tank-item .t-name { font-weight: 700; font-size: 14px; }
 .tank-item .t-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
 .tank-item .hint { display: block; margin-top: 3px; }
+.reference-citation { margin-top: 12px; font-size: 11px !important; line-height: 1.5; }
+.tank-vigilancia-action { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 14px; }
+.vigilance-card-section { border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem; margin-bottom: 1rem; }
+.vigilance-empty-action { margin-top: 16px; }
+.vigilance-quick-action { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.vigilance-quick-copy { min-width: 0; }
+.vigilance-quick-copy .hint { display: block; margin-top: 4px; }
+.vigilance-quick-action form { flex: 0 0 auto; }
+.vigilancia-toggle { width: 180px; min-width: 180px; padding: 9px 16px; font-size: 13px; }
+.vigilancia-toggle.vigilancia-inactiva,
+.vigilancia-toggle.inactivo { background: #16a34a; color: #fff; }
+.vigilancia-toggle.vigilancia-inactiva:hover,
+.vigilancia-toggle.inactivo:hover { background: #15803d; }
+.vigilancia-toggle.vigilancia-activa,
+.vigilancia-toggle.activo { background: #dc2626; color: #fff; }
+.vigilancia-toggle.vigilancia-activa:hover,
+.vigilancia-toggle.activo:hover { background: #b91c1c; }
 .tank-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -604,6 +625,7 @@ table.data tbody tr:hover { background: #f8fafc; }
 
 @media (max-width: 960px) {
     .grid-2, .grid-2eq, .grid-3, .report-grid { grid-template-columns: 1fr; }
+    .dashboard-columns { grid-template-columns: 1fr; }
     .stat-row { grid-template-columns: 1fr 1fr; }
     .main { padding: 20px; }
     .topbar-right { display: none; }
@@ -979,6 +1001,8 @@ table.data { table-layout: fixed; }
     .level-big { font-size: clamp(38px, 12vw, 46px); }
     .level-big small { font-size: 16px; }
     .level-liters { font-size: clamp(14px, 4vw, 17px); }
+    .vigilance-quick-action { align-items: stretch; flex-direction: column; }
+    .vigilance-quick-action form, .vigilance-quick-action .btn { width: 100%; }
     .table-wrap { width: 100%; overflow-x: hidden; }
     table.data {
         width: 100%;

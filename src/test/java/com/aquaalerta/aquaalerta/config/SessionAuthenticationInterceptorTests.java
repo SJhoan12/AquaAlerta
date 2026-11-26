@@ -108,6 +108,22 @@ class SessionAuthenticationInterceptorTests {
     }
 
     @Test
+    void allowsUserToToggleVigilanceWithCsrfWhileKeepingTankSettingsAdminOnly() throws Exception {
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("POST", "/tanques/tanque-01/modo-vigilancia/toggle");
+        HttpSession session = request.getSession();
+        session.setAttribute("usuario", "estudiante");
+        session.setAttribute("rol", "USER");
+        session.setAttribute("csrfToken", "valid-token");
+        MockHttpServletResponse rejected = new MockHttpServletResponse();
+        assertFalse(interceptor.preHandle(request, rejected, new Object()));
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, rejected.getStatus());
+
+        request.addParameter("_csrf", "valid-token");
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
+    @Test
     void requiresCsrfTokenForLoginSubmission() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/login");
         MockHttpServletResponse response = new MockHttpServletResponse();

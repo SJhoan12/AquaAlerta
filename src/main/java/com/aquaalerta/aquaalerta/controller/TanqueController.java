@@ -6,6 +6,8 @@ import com.aquaalerta.aquaalerta.service.TanqueService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
@@ -24,9 +26,11 @@ public class TanqueController {
     @GetMapping
     public String listar(Model model) {
         model.addAttribute("tanques", tanqueService.listarTodos());
-        if (!model.containsAttribute("tanque")) {
-            model.addAttribute("tanque", new Tanque());
-        }
+        Object tanqueModel = model.asMap().get("tanque");
+        Tanque tanque = tanqueModel instanceof Tanque
+                ? (Tanque) tanqueModel
+                : new Tanque();
+        model.addAttribute("tanque", prepararTanque(tanque));
         model.addAttribute("numAlertas", alertaRepository.findByEstado("ACTIVA").size());
         return "tanques";
     }
@@ -58,14 +62,35 @@ public class TanqueController {
     @GetMapping("/editar/{id}")
     public String editar(@PathVariable String id, Model model) {
         model.addAttribute("tanques", tanqueService.listarTodos());
-        model.addAttribute("tanque",
-                tanqueService.buscarPorId(id).orElse(new Tanque()));
+        Tanque tanque = tanqueService.buscarPorId(id).orElseGet(Tanque::new);
+        model.addAttribute("tanque", prepararTanque(tanque));
         return "tanques";
+    }
+
+    private Tanque prepararTanque(Tanque tanque) {
+        tanque.setNumeroPersonas(tanque.getNumeroPersonas());
+        tanque.setModoVigilancia(tanque.isModoVigilancia());
+        return tanque;
     }
 
     @PostMapping("/eliminar/{id}")
     public String eliminar(@PathVariable String id) {
         tanqueService.eliminarPorId(id);
         return "redirect:/tanques";
+    }
+
+    @PostMapping("/{id}/modo-vigilancia/toggle")
+    public String alternarModoVigilancia(@PathVariable String id, @RequestParam String origen) {
+        if (!"dashboard".equals(origen) && !"tanques".equals(origen)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Origen de redirección inválido.");
+        }
+        try {
+            tanqueService.alternarModoVigilancia(id);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, exception.getMessage(), exception);
+        }
+        return "dashboard".equals(origen)
+                ? "redirect:/?tanqueId=" + id
+                : "redirect:/tanques";
     }
 }

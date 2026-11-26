@@ -87,8 +87,12 @@ public class SessionAuthenticationInterceptor implements HandlerInterceptor {
 
     private boolean requiresAdmin(String path) {
         return path.equals("/tanques")
-                || path.startsWith("/tanques/")
+                || (path.startsWith("/tanques/") && !isModoVigilanciaToggle(path))
                 || path.startsWith("/alertas/resolver/");
+    }
+
+    private boolean isModoVigilanciaToggle(String path) {
+        return path.matches("/tanques/[^/]+/modo-vigilancia/toggle");
     }
 
     private boolean isSafeMethod(String method) {

@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="es">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Configuración - AquaAlerta</title><link rel="stylesheet" th:href="@{/style.css(v=7)}">
+<title>Configuración - AquaAlerta</title><link rel="stylesheet" th:href="@{/style.css(v=9)}">
 <link rel="stylesheet" th:href="@{/theme.css(v=1)}"><script th:src="@{/theme.js(v=1)}"></script>
 </head>
 <body><div class="layout">
@@ -11,7 +11,9 @@
 <div class="topbar"><div><div class="page-title">Configuración del tanque</div><div class="page-sub">Medidas y avisos de tu tanque.</div></div></div>
 <div class="flash-message flash-success" th:if="${mensajeTanque != null}" th:text="${mensajeTanque}"></div>
 <div class="flash-message flash-error" th:if="${errorTanque != null}" th:text="${errorTanque}"></div>
-<div class="grid grid-2"><div class="card">
+<div class="grid grid-2">
+<div class="grid">
+<div class="card">
 <h3>Tanque</h3><span class="hint">Ingresa la altura del tanque indicada por el fabricante y su capacidad total.</span>
 <form th:action="@{/tanques/guardar}" th:object="${tanque}" method="post" style="margin-top:12px">
 <input type="hidden" name="_csrf" th:value="${session.csrfToken}">
@@ -19,18 +21,31 @@
 <div class="field"><label>Nombre</label><input class="input" th:field="*{nombre}" required placeholder="Nombre para identificar el tanque"></div>
 <div class="row-2"><div class="field"><label>Altura del tanque (cm)</label><input class="input" type="number" min="0.01" step="0.01" th:field="*{alturaMaxCm}" required placeholder="Altura en centímetros"></div>
 <div class="field"><label>Capacidad total (litros)</label><input class="input" type="number" min="0.01" step="0.01" th:field="*{volumenMax}" required placeholder="Capacidad en litros"></div></div>
-<span class="hint">Al registrar el tanque lleno, AquaAlerta guardará la distancia entre el sensor y el agua. En tu instalación es de aproximadamente 20 cm. El volumen mostrado es aproximado.</span>
+<div class="field"><label>¿Cuántas personas en casa consumen más agua del tanque?</label><input class="input" id="numeroPersonas" type="number" min="1" max="30" th:field="*{numeroPersonas}" required oninput="actualizarGastoReferencial()"></div>
+<span class="hint">Al registrar el tanque lleno, AquaAlerta guardará la distancia entre el sensor y el agua. El volumen mostrado es aproximado.</span>
 <details style="margin-top:12px">
 <summary class="hint">Ajustes avanzados</summary>
 <div class="field"><label>Umbral mínimo (cm)</label><input class="input" type="number" step="0.01" th:field="*{umbralMinimo}"><span class="hint">Nivel de agua por debajo del cual el tanque se marca como bajo.</span></div>
 <div class="row-2"><div class="field"><label>Margen informativo (%)</label><input class="input" type="number" step="0.01" th:field="*{margenInformativoPct}"><span class="hint">Aumento sobre el consumo habitual que genera un aviso informativo.</span></div>
 <div class="field"><label>Umbral de anomalía (%)</label><input class="input" type="number" step="0.01" th:field="*{umbralAnomaliaPct}"><span class="hint">Aumento sobre el consumo habitual que se considera anómalo.</span></div></div>
-<span class="hint">Además del patrón por fases, se evalúan estas reglas: de 01:00 a 05:00, caída promedio mayor de 1 cm; tendencia mayor de 1 cm en 30 minutos; y caída progresiva de al menos 3 cm en hasta 2 minutos. Se filtran lecturas atípicas y cada alerta se confirma en dos evaluaciones seguidas. El horario usa la hora local del servidor.</span>
+<span class="hint">Se evalúan el número de personas, el horario local de Lima y la temporada automática. Las lecturas atípicas se filtran y cada alerta se confirma en dos evaluaciones seguidas.</span>
 </details>
-<button class="btn btn-primary">Guardar tanque</button></form></div>
+<button class="btn btn-primary">Guardar tanque</button></form>
+</div>
+<div class="card tank-resumen" th:if="${tanque != null}">
+<h4>Referencia residencial</h4>
+<div class="stat-list">
+<div class="stat-line"><span>Gasto diario referencial</span><b id="gastoDiario" th:attr="data-factor=${tanque.obtenerFactorTemporada()}" th:text="${#numbers.formatDecimal(tanque.calcularGastoDiarioReferencial(), 1, 0)} + ' L/día'">250 L/día</b></div>
+<div class="stat-line"><span>Temporada detectada automáticamente</span><b th:text="${tanque.obtenerTemporadaActual() == T(com.aquaalerta.aquaalerta.Temporada).VERANO ? 'VERANO (+20%)' : 'NORMAL'}">NORMAL</b></div>
+</div>
+<span class="hint">Horarios pico: 06:00-09:00 · 12:00-14:30 · 19:00-22:00. En estas horas es normal gastar más agua por duchas y cocina, por lo que el sistema ajusta su tolerancia automáticamente.</span>
+<p class="hint reference-citation">Referencia extraída de: Norma Técnica I.S. 010 (MVCS, 2024) · Patrones horarios residenciales (SUNASS, 2025) · Umbrales adaptativos IoT (Rojas-Valverde &amp; Méndez-Soto, 2025).</p>
+</div>
+</div>
 <div class="card"><h3>Tanques registrados</h3><span class="hint" th:text="${#lists.size(tanques)} + ' en total'">0</span>
 <div th:if="${#lists.isEmpty(tanques)}" class="empty" style="margin-top:12px;padding:28px"><p>Todavía no hay tanques.</p></div>
-<div class="tank-item" th:each="t : ${tanques}"><div class="tank-info"><div class="t-name" th:text="${t.nombre}">Tanque</div><div class="t-meta"><span th:text="${t.alturaMaxCm}">0</span> cm · <span th:text="${#numbers.formatDecimal(t.volumenMax,1,0)}">0</span> L</div>
+<div class="tank-entry" th:each="t : ${tanques}">
+<div class="tank-item"><div class="tank-info"><div class="t-name" th:text="${t.nombre}">Tanque</div><div class="t-meta"><span th:text="${t.alturaMaxCm}">0</span> cm · <span th:text="${#numbers.formatDecimal(t.volumenMax,1,0)}">0</span> L</div>
 <div class="hint" th:text="${t.distanciaLlenoCm != null ? 'Tanque lleno registrado' : 'Tanque lleno sin registrar'}">Estado de referencia</div></div>
 <div class="tank-actions">
 <form th:action="@{'/tanques/' + ${t.id} + '/registrar-lleno'}" method="post">
@@ -43,5 +58,35 @@
 <input type="hidden" name="_csrf" th:value="${session.csrfToken}">
 <button class="btn btn-danger-soft btn-sm" type="submit">Eliminar</button>
 </form></div></div>
+<div class="tank-vigilancia-action">
+<span class="hint" th:text="${t.modoVigilancia} ? 'Casa vacía protegida: cualquier consumo mínimo activará una alerta.' : 'Úsalo cuando salgas y no quede nadie en casa; te avisará si baja aunque sea 1 cm de agua.'">Información del modo vigilancia</span>
+<form th:action="@{'/tanques/' + ${t.id} + '/modo-vigilancia/toggle'}" method="post">
+<input type="hidden" name="_csrf" th:value="${session.csrfToken}">
+<input type="hidden" name="origen" value="tanques">
+<button type="submit" class="btn vigilancia-toggle btn-sm"
+        th:classappend="${t.modoVigilancia} ? ' btn-danger-soft activo' : ' btn-primary inactivo'"
+        th:text="${t.modoVigilancia} ? 'Desactivar Modo Vigilancia (ACTIVO)' : 'Activar Modo Vigilancia'">Activar Modo Vigilancia</button>
+</form>
+</div>
+</div>
 </div></div></main></div>
+<script th:inline="javascript">
+const CONSUMO_DIARIO_POR_PERSONA_LITROS = 80;
+const FACTOR_TEMPORADA_NORMAL = 1;
+
+function actualizarGastoReferencial() {
+  const numeroPersonas = document.getElementById('numeroPersonas');
+  const gasto = document.getElementById('gastoDiario');
+  if (!numeroPersonas || !gasto) return;
+  const personas = Number.parseInt(numeroPersonas.value, 10);
+  const factor = Number.parseFloat(gasto.dataset.factor || String(FACTOR_TEMPORADA_NORMAL));
+  if (!Number.isFinite(personas) || personas < 1) {
+    gasto.textContent = 'L/día';
+    return;
+  }
+  const consumoDiario = personas * CONSUMO_DIARIO_POR_PERSONA_LITROS * factor;
+  gasto.textContent = Math.round(consumoDiario).toLocaleString('es-PE') + ' L/día';
+}
+
+</script>
 </body></html>

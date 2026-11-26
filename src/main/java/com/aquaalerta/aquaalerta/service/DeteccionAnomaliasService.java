@@ -14,15 +14,23 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+/**
+ * Combina reglas domésticas adaptativas con el aprendizaje histórico por franja.
+ * Las referencias de consumo y horarios se documentan como MVCS (2024), Mazzoni et al. (2024),
+ * SUNASS (2025) y Rojas-Valverde &amp; Méndez-Soto (2025).
+ */
 @Service
 public class DeteccionAnomaliasService {
 
+    private static final ZoneId ZONA_LIMA = ZoneId.of("America/Lima");
     private static final int VENTANA_MINUTOS = 4;
     private static final int MAX_LECTURAS_RECIENTES = 10;
     private static final int MAX_SEPARACION_MINUTOS = 5;
@@ -39,22 +47,35 @@ public class DeteccionAnomaliasService {
     private static final int VENTANA_RITMO_DIARIO_HORAS = 4;
     private static final int MAX_SEPARACION_RITMO_DIARIO_MINUTOS = 5;
     private static final double MOVIMIENTO_MINIMO_RITMO_DIARIO_LITROS = 0.1;
-    private static final LocalTime INICIO_VENTANA_NOCTURNA = LocalTime.of(1, 0);
-    private static final LocalTime FIN_VENTANA_NOCTURNA = LocalTime.of(5, 0);
     private static final int MINUTOS_BLOQUE_PROMEDIO = 5;
     private static final int MIN_LECTURAS_POR_BLOQUE = 5;
-    private static final double CAIDA_NOCTURNA_MINIMA_CM = 1.0;
     private static final int VENTANA_FUGA_LENTA_MINUTOS = 30;
-    private static final double CAIDA_FUGA_LENTA_MINIMA_CM = 1.0;
-    private static final int CANTIDAD_BLOQUES_FUGA_LENTA = 6;
-    private static final int DESCENSOS_MINIMOS_TENDENCIA = 3;
-    private static final double PAUSA_MAXIMA_TENDENCIA_CM = 0.3;
-    private static final double PASO_DESCENDENTE_MINIMO_CM = 0.05;
+    private static final int VENTANA_VIGILANCIA_RAPIDA_MINUTOS = 2;
+    private static final double UMBRAL_VIGILANCIA_LENTO_CM = 1.0;
+    private static final double UMBRAL_VIGILANCIA_RAPIDO_CM = 1.5;
+    private static final double UMBRAL_MADRUGADA_CM = 1.5;
+    private static final double MULTIPLICADOR_UMBRAL_HORARIO_PICO = 2.0;
+    private static final double MULTIPLICADOR_UMBRAL_HORARIO_REGULAR = 1.2;
+    private static final double MARGEN_DESCENSO_ACTIVO_CM = 0.5;
+    private static final LocalTime INICIO_MADRUGADA = LocalTime.of(0, 0);
+    private static final LocalTime FIN_MADRUGADA = LocalTime.of(5, 0);
+    private static final LocalTime INICIO_PICO_MANANA = LocalTime.of(6, 0);
+    private static final LocalTime FIN_PICO_MANANA = LocalTime.of(9, 0);
+    private static final LocalTime INICIO_PICO_MEDIODIA = LocalTime.of(12, 0);
+    private static final LocalTime FIN_PICO_MEDIODIA = LocalTime.of(14, 30);
+    private static final LocalTime INICIO_PICO_NOCHE = LocalTime.of(19, 0);
+    private static final LocalTime FIN_PICO_NOCHE = LocalTime.of(22, 0);
     private static final int VENTANA_CAIDA_BRUSCA_MINUTOS = 2;
     private static final int LECTURAS_CAIDA_BRUSCA_REQUERIDAS = 3;
     private static final long SEPARACION_CAIDA_BRUSCA_MAXIMA_SEGUNDOS = 60;
     private static final double CAIDA_BRUSCA_MINIMA_CM = 3.0;
     private static final double RUIDO_MAXIMO_CAIDA_BRUSCA_CM = 0.2;
+    private static final double PORCENTAJE_COMPLETO = 100.0;
+    private static final double MILISEGUNDOS_POR_MINUTO = 60_000.0;
+    private static final long SEGUNDOS_POR_MINUTO = 60L;
+    private static final String DIA_PATRON_MODO_VIGILANCIA = "MODO_VIGILANCIA";
+    private static final String FRANJA_PATRON_MODO_VIGILANCIA = "MODO_VIGILANCIA";
+    private static final String RANGO_MODO_VIGILANCIA = "MODO_VIGILANCIA";
 
     private final LecturaNivelRepository lecturaRepo;
     private final PatronConsumoRepository patronRepo;
@@ -85,12 +106,22 @@ public class DeteccionAnomaliasService {
         // Si se registró nuevamente el tanque lleno, esa referencia inicia un ciclo de aprendizaje nuevo.
         LocalDateTime primeraLectura = primeraLectura(
                 lecturas, ts, tanque.getReferenciaLlenoActualizada());
-        String dia = diaSemana(ts);
-        FranjaHoraria franja = FranjaHoraria.de(ts);
-        String rango = rangoFranja(franja);
+        String dia;
+        String franjaCodigo;
+        String rango;
+        if (tanque.isModoVigilancia()) {
+            dia = DIA_PATRON_MODO_VIGILANCIA;
+            franjaCodigo = FRANJA_PATRON_MODO_VIGILANCIA;
+            rango = RANGO_MODO_VIGILANCIA;
+        } else {
+            dia = diaSemana(ts);
+            FranjaHoraria franja = FranjaHoraria.de(ts);
+            franjaCodigo = franja.getCodigo();
+            rango = rangoFranja(franja);
+        }
         PatronConsumo patron = patronRepo
-                .findByTanqueIdAndDiaSemanaAndFranja(tanque.getId(), dia, franja.getCodigo())
-                .orElseGet(() -> nuevoPatron(tanque.getId(), dia, franja.getCodigo()));
+                .findByTanqueIdAndDiaSemanaAndFranja(tanque.getId(), dia, franjaCodigo)
+                .orElseGet(() -> nuevoPatron(tanque.getId(), dia, franjaCodigo));
 
         LocalDateTime ultimaEvaluacion = patron.getUltimaEvaluacionTasa();
         if (ultimaEvaluacion != null && !ts.isAfter(ultimaEvaluacion)) {
@@ -101,9 +132,11 @@ public class DeteccionAnomaliasService {
 
         CandidatoAnomalia reglaAdicional = evaluarReglasAdicionales(
                 tanque, lecturas, guardada, ts);
-        Optional<TasaConsumo> tasaActual = calcularTasaConsumo(
-                lecturas, guardada, ts, tanque.getAlturaMaxCm(),
-                tanque.getReferenciaLlenoActualizada(), tanque.getVolumenMax());
+        Optional<TasaConsumo> tasaActual = tanque.isModoVigilancia()
+                ? Optional.empty()
+                : calcularTasaConsumo(
+                        lecturas, guardada, ts, tanque.getAlturaMaxCm(),
+                        tanque.getReferenciaLlenoActualizada(), tanque.getVolumenMax());
         if (tasaActual.isEmpty()) {
             if (reglaAdicional != null) {
                 confirmarAnomalia(tanque, guardada, patron, reglaAdicional,
@@ -121,6 +154,8 @@ public class DeteccionAnomaliasService {
         Fase fase = determinarFase(primeraLectura, ts);
         CandidatoAnomalia candidato = reglaAdicional != null
                 ? reglaAdicional
+                : tanque.isModoVigilancia()
+                ? null
                 : evaluarFase(fase, tanque, patron, tasa, ritmoDiario, dia, rango);
 
         if (candidato != null) {
@@ -128,11 +163,13 @@ public class DeteccionAnomaliasService {
                     ultimaEvaluacion, ts, rango);
         } else {
             reiniciarConfirmacionAnomalia(patron);
-            if (fase == Fase.HISTORICO) {
-                evaluarInformativo(tanque, patron, tasa, ts, dia, rango);
-            }
-            if (tasa.porcentajeAlturaPorMinuto() > 0) {
-                actualizarPatron(patron, tasa.porcentajeAlturaPorMinuto());
+            if (!tanque.isModoVigilancia()) {
+                if (fase == Fase.HISTORICO) {
+                    evaluarInformativo(tanque, patron, tasa, ts, dia, rango);
+                }
+                if (tasa.porcentajeAlturaPorMinuto() > 0) {
+                    actualizarPatron(patron, tasa.porcentajeAlturaPorMinuto());
+                }
             }
         }
         patronRepo.save(patron);
@@ -144,92 +181,150 @@ public class DeteccionAnomaliasService {
                                                         LocalDateTime ts) {
         List<LecturaNivel> validas = lecturasValidas(
                 lecturas, actual, ts, tanque.getReferenciaLlenoActualizada());
-        CandidatoAnomalia caidaBrusca = evaluarCaidaBrusca(validas, ts);
+        if (tanque.isModoVigilancia()) {
+            return evaluarModoVigilancia(validas, ts);
+        }
+
+        CandidatoAnomalia caidaBrusca = evaluarCaidaBrusca(
+                validas, ts, tanque.obtenerFactorTemporada());
         if (caidaBrusca != null) {
             return caidaBrusca;
         }
-        CandidatoAnomalia fugaLenta = evaluarFugaLenta(validas, ts);
-        if (fugaLenta != null) {
-            return fugaLenta;
-        }
-        return evaluarCaidaNocturna(validas, ts);
+        return evaluarFugaLentaAdaptativa(tanque, validas, ts);
     }
 
-    private CandidatoAnomalia evaluarCaidaNocturna(List<LecturaNivel> lecturas,
-                                                    LocalDateTime ts) {
-        LocalDateTime inicio = ts.toLocalDate().atTime(INICIO_VENTANA_NOCTURNA);
-        LocalDateTime fin = ts.toLocalDate().atTime(FIN_VENTANA_NOCTURNA);
-        LocalDateTime finBloqueInicial = inicio.plusMinutes(MINUTOS_BLOQUE_PROMEDIO);
-        if (ts.isBefore(finBloqueInicial.plusMinutes(MINUTOS_BLOQUE_PROMEDIO))
-                || !ts.isBefore(fin)) {
-            return null;
+    /**
+     * Activa vigilancia por consumo mínimo sin aplicar perfiles ni horarios.
+     * Umbrales de 1 cm/30 min y 1,5 cm/2 min, según Rojas-Valverde &amp; Méndez-Soto (2025).
+     */
+    private CandidatoAnomalia evaluarModoVigilancia(List<LecturaNivel> lecturas,
+                                                     LocalDateTime ts) {
+        Optional<Double> caidaRapida = calcularCaidaEnVentana(
+                lecturas, ts, VENTANA_VIGILANCIA_RAPIDA_MINUTOS);
+        if (caidaRapida.isPresent() && caidaRapida.get() >= UMBRAL_VIGILANCIA_RAPIDO_CM) {
+            return new CandidatoAnomalia(
+                    "MODO_VIGILANCIA_RAPIDO",
+                    "cm",
+                    "Consumo detectado en Modo Vigilancia (Casa Vacía): caída de "
+                            + red(caidaRapida.get()) + " cm en 2 minutos.",
+                    caidaRapida.get(),
+                    UMBRAL_VIGILANCIA_RAPIDO_CM);
         }
 
-        Optional<Double> nivelInicial = promedioNivel(
-                lecturas, inicio, finBloqueInicial, MIN_LECTURAS_POR_BLOQUE);
-        Optional<Double> nivelActual = promedioNivel(
-                lecturas, ts.minusMinutes(MINUTOS_BLOQUE_PROMEDIO),
-                ts.plusNanos(1), MIN_LECTURAS_POR_BLOQUE);
-        if (nivelInicial.isEmpty() || nivelActual.isEmpty()) {
-            return null;
+        Optional<Double> caidaLenta = calcularCaidaEnVentana(
+                lecturas, ts, VENTANA_FUGA_LENTA_MINUTOS);
+        if (caidaLenta.isPresent() && caidaLenta.get() >= UMBRAL_VIGILANCIA_LENTO_CM) {
+            return new CandidatoAnomalia(
+                    "MODO_VIGILANCIA_LENTO",
+                    "cm",
+                    "Consumo detectado en Modo Vigilancia (Casa Vacía): caída de "
+                            + red(caidaLenta.get()) + " cm en 30 minutos.",
+                    caidaLenta.get(),
+                    UMBRAL_VIGILANCIA_LENTO_CM);
         }
+        return null;
+    }
 
-        double caidaCm = nivelInicial.get() - nivelActual.get();
-        if (caidaCm <= CAIDA_NOCTURNA_MINIMA_CM) {
+    /**
+     * Aplica umbrales domésticos de 30 minutos y exige descenso activo
+     * conforme a SUNASS (2025) y Rojas-Valverde &amp; Méndez-Soto (2025).
+     */
+    private CandidatoAnomalia evaluarFugaLentaAdaptativa(Tanque tanque,
+                                                          List<LecturaNivel> lecturas,
+                                                          LocalDateTime ts) {
+        LocalTime horaLocal = ZonedDateTime.now(ZONA_LIMA).toLocalTime();
+        double umbralCm = calcularUmbralFugaLentaCm(tanque, horaLocal);
+        Optional<Double> caida = calcularCaidaEnVentana(
+                lecturas, ts, VENTANA_FUGA_LENTA_MINUTOS);
+        if (caida.isEmpty() || caida.get() < umbralCm
+                || !sigueDescendiendo(lecturas, ts)) {
             return null;
         }
         return new CandidatoAnomalia(
-                "FUGA_NOCTURNA",
+                "FUGA_LENTA_ADAPTATIVA",
                 "cm",
-                "Regla nocturna (01:00-05:00): caída promedio de "
-                        + red(caidaCm) + " cm desde el inicio de la ventana.",
-                caidaCm,
-                CAIDA_NOCTURNA_MINIMA_CM);
+                "Posible fuga: el nivel descendió " + red(caida.get())
+                        + " cm en 30 minutos y sigue bajando. Umbral adaptado al horario y al número de personas.",
+                caida.get(),
+                umbralCm);
     }
 
-    private CandidatoAnomalia evaluarFugaLenta(List<LecturaNivel> lecturas,
-                                               LocalDateTime ts) {
-        LocalDateTime inicio = ts.minusMinutes(VENTANA_FUGA_LENTA_MINUTOS);
-        List<Double> promedios = new ArrayList<>();
-        for (int bloque = 0; bloque < CANTIDAD_BLOQUES_FUGA_LENTA; bloque++) {
-            LocalDateTime desde = inicio.plusMinutes((long) bloque * MINUTOS_BLOQUE_PROMEDIO);
-            LocalDateTime hasta = bloque == CANTIDAD_BLOQUES_FUGA_LENTA - 1
-                    ? ts.plusNanos(1)
-                    : desde.plusMinutes(MINUTOS_BLOQUE_PROMEDIO);
-            Optional<Double> promedio = promedioNivel(
-                    lecturas, desde, hasta, MIN_LECTURAS_POR_BLOQUE);
-            if (promedio.isEmpty()) {
-                return null;
-            }
-            promedios.add(promedio.get());
+    /**
+     * Calcula número de personas × multiplicador horario × factor estacional,
+     * según SUNASS (2025) y Rojas-Valverde &amp; Méndez-Soto (2025).
+     */
+    private double calcularUmbralFugaLentaCm(Tanque tanque, LocalTime hora) {
+        if (esHorarioMadrugada(hora)) {
+            return UMBRAL_MADRUGADA_CM;
         }
-
-        int descensos = 0;
-        for (int i = 1; i < promedios.size(); i++) {
-            double cambio = promedios.get(i - 1) - promedios.get(i);
-            if (cambio > PASO_DESCENDENTE_MINIMO_CM) {
-                descensos++;
-            } else if (cambio < -PAUSA_MAXIMA_TENDENCIA_CM) {
-                return null;
-            }
-        }
-        double caidaCm = promedios.getFirst() - promedios.getLast();
-        if (caidaCm <= CAIDA_FUGA_LENTA_MINIMA_CM
-                || descensos < DESCENSOS_MINIMOS_TENDENCIA) {
-            return null;
-        }
-        return new CandidatoAnomalia(
-                "FUGA_LENTA",
-                "cm",
-                "Fuga lenta: tendencia descendente de " + red(caidaCm)
-                        + " cm en los últimos " + VENTANA_FUGA_LENTA_MINUTOS
-                        + " minutos, calculada con promedios de bloques.",
-                caidaCm,
-                CAIDA_FUGA_LENTA_MINIMA_CM);
+        double multiplicador = esHorarioPico(hora)
+                ? MULTIPLICADOR_UMBRAL_HORARIO_PICO
+                : MULTIPLICADOR_UMBRAL_HORARIO_REGULAR;
+        return tanque.getNumeroPersonas()
+                * multiplicador
+                * tanque.obtenerFactorTemporada();
     }
 
+    private boolean esHorarioPico(LocalTime hora) {
+        return estaDentroDelHorario(hora, INICIO_PICO_MANANA, FIN_PICO_MANANA)
+                || estaDentroDelHorario(hora, INICIO_PICO_MEDIODIA, FIN_PICO_MEDIODIA)
+                || estaDentroDelHorario(hora, INICIO_PICO_NOCHE, FIN_PICO_NOCHE);
+    }
+
+    private boolean esHorarioMadrugada(LocalTime hora) {
+        return estaDentroDelHorario(hora, INICIO_MADRUGADA, FIN_MADRUGADA);
+    }
+
+    private boolean estaDentroDelHorario(LocalTime hora,
+                                          LocalTime inicio,
+                                          LocalTime fin) {
+        return !hora.isBefore(inicio) && hora.isBefore(fin);
+    }
+
+    /**
+     * Mide el descenso entre la primera y última lectura válida dentro de la ventana móvil.
+     */
+    private Optional<Double> calcularCaidaEnVentana(List<LecturaNivel> lecturas,
+                                                     LocalDateTime ts,
+                                                     int ventanaMinutos) {
+        LocalDateTime inicio = ts.minusMinutes(ventanaMinutos);
+        List<LecturaNivel> lecturasRecientes = lecturas.stream()
+                .filter(lectura -> !lectura.getTimestamp().isBefore(inicio))
+                .filter(lectura -> !lectura.getTimestamp().isAfter(ts))
+                .toList();
+        if (lecturasRecientes.size() < 2) {
+            return Optional.empty();
+        }
+        double nivelInicial = lecturasRecientes.getFirst().getNivelCm();
+        double nivelActual = lecturasRecientes.getLast().getNivelCm();
+        return Optional.of(nivelInicial - nivelActual);
+    }
+
+    /**
+     * Compara promedios de dos bloques consecutivos y exige al menos 0,5 cm de descenso,
+     * de acuerdo con los umbrales adaptativos IoT de Rojas-Valverde &amp; Méndez-Soto (2025).
+     */
+    private boolean sigueDescendiendo(List<LecturaNivel> lecturas, LocalDateTime ts) {
+        Optional<Double> bloqueAnterior = promedioNivel(
+                lecturas,
+                ts.minusMinutes(MINUTOS_BLOQUE_PROMEDIO * 2L),
+                ts.minusMinutes(MINUTOS_BLOQUE_PROMEDIO),
+                MIN_LECTURAS_POR_BLOQUE);
+        Optional<Double> bloqueActual = promedioNivel(
+                lecturas,
+                ts.minusMinutes(MINUTOS_BLOQUE_PROMEDIO),
+                ts.plusNanos(1),
+                MIN_LECTURAS_POR_BLOQUE);
+        return bloqueAnterior.isPresent() && bloqueActual.isPresent()
+                && bloqueActual.get() < bloqueAnterior.get() - MARGEN_DESCENSO_ACTIVO_CM;
+    }
+
+    /**
+     * Detecta una caída brusca dentro de dos minutos con margen estacional.
+     */
     private CandidatoAnomalia evaluarCaidaBrusca(List<LecturaNivel> lecturas,
-                                                  LocalDateTime ts) {
+                                                  LocalDateTime ts,
+                                                  double factorTemporada) {
         LocalDateTime inicio = ts.minusMinutes(VENTANA_CAIDA_BRUSCA_MINUTOS);
         List<LecturaNivel> recientes = lecturas.stream()
                 .filter(lectura -> !lectura.getTimestamp().isBefore(inicio))
@@ -257,7 +352,8 @@ public class DeteccionAnomaliasService {
 
         double caidaCm = segmento.getFirst().getNivelCm()
                 - segmento.getLast().getNivelCm();
-        if (caidaCm < CAIDA_BRUSCA_MINIMA_CM) {
+        double umbralCm = CAIDA_BRUSCA_MINIMA_CM * factorTemporada;
+        if (caidaCm < umbralCm) {
             return null;
         }
         return new CandidatoAnomalia(
@@ -267,7 +363,7 @@ public class DeteccionAnomaliasService {
                         + " cm confirmado en " + segmento.size()
                         + " lecturas consecutivas.",
                 caidaCm,
-                CAIDA_BRUSCA_MINIMA_CM);
+                umbralCm);
     }
 
     private Optional<Double> promedioNivel(List<LecturaNivel> lecturas,
@@ -352,8 +448,8 @@ public class DeteccionAnomaliasService {
                             + redLitros(tasa.litrosPorMinuto()) + " L/min frente a "
                             + redLitros(ritmoDiario.get().litrosPorMinuto())
                             + " L/min) en la franja " + rango + ".",
-                    multiplicador * 100.0,
-                    MULTIPLICADOR_INTRA_DIA * 100.0);
+                    multiplicador * PORCENTAJE_COMPLETO,
+                    MULTIPLICADOR_INTRA_DIA * PORCENTAJE_COMPLETO);
         }
 
         // Fase 2: solo el patrón histórico de día y franja, con el umbral configurable.
@@ -363,7 +459,7 @@ public class DeteccionAnomaliasService {
         }
 
         double desviacion = ((tasa.porcentajeAlturaPorMinuto() - referenciaHistorica)
-                / referenciaHistorica) * 100.0;
+                / referenciaHistorica) * PORCENTAJE_COMPLETO;
         double umbral = tanque.getUmbralAnomaliaPct();
         if (desviacion <= umbral) {
             return null;
@@ -389,7 +485,7 @@ public class DeteccionAnomaliasService {
         }
 
         double desviacion = ((tasa.porcentajeAlturaPorMinuto() - referenciaHistorica)
-                / referenciaHistorica) * 100.0;
+                / referenciaHistorica) * PORCENTAJE_COMPLETO;
         double margen = tanque.getMargenInformativoPct();
         if (desviacion > margen
                 && !existeAlertaHoy(tanque.getId(), ts.toLocalDate(), rango, "INFORMATIVO")) {
@@ -413,7 +509,7 @@ public class DeteccionAnomaliasService {
         boolean mismaRegla = candidato.reglaId().equals(patron.getReglaAnomalaEnConfirmacion());
         boolean consecutiva = mismaRegla && ultimaEvaluacion != null
                 && Duration.between(ultimaEvaluacion, ts).getSeconds()
-                <= MAX_SEPARACION_MINUTOS * 60L;
+                <= MAX_SEPARACION_MINUTOS * SEGUNDOS_POR_MINUTO;
         patron.setEvaluacionesAnomalasConsecutivas(consecutiva
                 ? Math.min(EVALUACIONES_CONSECUTIVAS_REQUERIDAS,
                         patron.getEvaluacionesAnomalasConsecutivas() + 1)
@@ -513,7 +609,7 @@ public class DeteccionAnomaliasService {
         LecturaNivel primera = lecturasDia.get(0);
         LecturaNivel ultima = lecturasDia.get(lecturasDia.size() - 1);
         double minutos = Duration.between(
-                primera.getTimestamp(), ultima.getTimestamp()).toMillis() / 60_000.0;
+                primera.getTimestamp(), ultima.getTimestamp()).toMillis() / MILISEGUNDOS_POR_MINUTO;
         if (minutos <= 0) {
             return Optional.empty();
         }
@@ -528,13 +624,13 @@ public class DeteccionAnomaliasService {
             LecturaNivel siguiente = lecturasDia.get(i);
             long segundos = Duration.between(
                     anterior.getTimestamp(), siguiente.getTimestamp()).getSeconds();
-            if (segundos <= 0 || segundos > MAX_SEPARACION_RITMO_DIARIO_MINUTOS * 60L) {
+            if (segundos <= 0 || segundos > MAX_SEPARACION_RITMO_DIARIO_MINUTOS * SEGUNDOS_POR_MINUTO) {
                 continue;
             }
             double bajada = anterior.getVolumenLitros() - siguiente.getVolumenLitros();
             if (Double.isFinite(bajada) && bajada >= minimoMovimientoPorIntervalo) {
                 litrosConsumidos += bajada;
-                minutosConMovimiento += segundos / 60.0;
+                minutosConMovimiento += segundos / (double) SEGUNDOS_POR_MINUTO;
             }
         }
         if (litrosConsumidos < minimoConsumoAcumulado || minutosConMovimiento <= 0) {
@@ -544,7 +640,7 @@ public class DeteccionAnomaliasService {
         if (!Double.isFinite(litrosPorMinuto) || litrosPorMinuto <= 0) {
             return Optional.empty();
         }
-        double porcentaje = litrosPorMinuto / capacidadLitros * 100.0;
+        double porcentaje = litrosPorMinuto / capacidadLitros * PORCENTAJE_COMPLETO;
         return Optional.of(new TasaConsumo(porcentaje, litrosPorMinuto, minutosConMovimiento, true));
     }
 
@@ -586,7 +682,7 @@ public class DeteccionAnomaliasService {
         for (int i = recientes.size() - 1; i > 0; i--) {
             long segundos = Duration.between(
                     recientes.get(i - 1).getTimestamp(), recientes.get(i).getTimestamp()).getSeconds();
-            if (segundos > MAX_SEPARACION_MINUTOS * 60L) {
+            if (segundos > MAX_SEPARACION_MINUTOS * SEGUNDOS_POR_MINUTO) {
                 break;
             }
             inicioSegmento = i - 1;
@@ -599,7 +695,7 @@ public class DeteccionAnomaliasService {
         LecturaNivel primera = segmento.get(0);
         LecturaNivel ultima = segmento.get(segmento.size() - 1);
         double minutos = Duration.between(
-                primera.getTimestamp(), ultima.getTimestamp()).toMillis() / 60_000.0;
+                primera.getTimestamp(), ultima.getTimestamp()).toMillis() / MILISEGUNDOS_POR_MINUTO;
         if (minutos <= 0) {
             return Optional.empty();
         }
@@ -613,7 +709,7 @@ public class DeteccionAnomaliasService {
         if (!Double.isFinite(litrosPorMinuto) || litrosPorMinuto <= 0) {
             return Optional.empty();
         }
-        double porcentaje = nivelBajadoCm / alturaMaximaCm * 100.0 / minutos;
+        double porcentaje = nivelBajadoCm / alturaMaximaCm * PORCENTAJE_COMPLETO / minutos;
         boolean caidaContinua = true;
         for (int i = 1; i < segmento.size(); i++) {
             if (segmento.get(i).getNivelCm() > segmento.get(i - 1).getNivelCm() + CAIDA_MINIMA_CM) {

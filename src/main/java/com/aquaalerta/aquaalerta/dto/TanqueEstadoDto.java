@@ -1,5 +1,7 @@
 package com.aquaalerta.aquaalerta.dto;
 
+import com.aquaalerta.aquaalerta.Temporada;
+
 public class TanqueEstadoDto {
     private String tanqueId;
     private String nombre;
@@ -9,6 +11,10 @@ public class TanqueEstadoDto {
     private double porcentaje;
     private String estado;
     private String estadoCss;
+    private int numeroPersonas;
+    private double gastoDiarioReferencial;
+    private Temporada temporada;
+    private boolean modoVigilancia;
 
     public TanqueEstadoDto() {
     }
@@ -23,6 +29,17 @@ public class TanqueEstadoDto {
         this.porcentaje = porcentaje;
         this.estado = estado;
         this.estadoCss = estadoCss;
+    }
+
+    public TanqueEstadoDto(String tanqueId, String nombre, double nivelCm, double volumenLitros,
+                           double volumenMax, double porcentaje, String estado, String estadoCss,
+                           int numeroPersonas, double gastoDiarioReferencial,
+                           Temporada temporada, boolean modoVigilancia) {
+        this(tanqueId, nombre, nivelCm, volumenLitros, volumenMax, porcentaje, estado, estadoCss);
+        this.numeroPersonas = numeroPersonas;
+        this.gastoDiarioReferencial = gastoDiarioReferencial;
+        this.temporada = temporada;
+        this.modoVigilancia = modoVigilancia;
     }
 
     public String getTanqueId() {
@@ -87,6 +104,22 @@ public class TanqueEstadoDto {
 
     public void setEstadoCss(String estadoCss) {
         this.estadoCss = estadoCss;
+    }
+
+    public int getNumeroPersonas() {
+        return numeroPersonas;
+    }
+
+    public double getGastoDiarioReferencial() {
+        return gastoDiarioReferencial;
+    }
+
+    public Temporada getTemporada() {
+        return temporada;
+    }
+
+    public boolean isModoVigilancia() {
+        return modoVigilancia;
     }
 }
 

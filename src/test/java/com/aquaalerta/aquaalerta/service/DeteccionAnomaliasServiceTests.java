@@ -89,53 +89,60 @@ class DeteccionAnomaliasServiceTests {
     }
 
     @Test
-    void reglaNocturnaPromediaBloquesYConfirmaLaCaida() {
-        TestContext context = new TestContext();
-        LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 1, 0);
-        PatronConsumo patron = new PatronConsumo();
-        when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
-                "tanque-01", "LUNES", "MADRUGADA")).thenReturn(Optional.of(patron));
-        when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
-
-        List<LecturaNivel> primeraLista = lecturasDescendentes(inicio, 22, 100.0, 0.125);
-        List<LecturaNivel> segundaLista = lecturasDescendentes(inicio, 23, 100.0, 0.125);
-        when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
-                .thenReturn(primeraLista, segundaLista);
-
-        context.service.evaluar(tanque(), ultimaLectura(primeraLista));
-        assertEquals(1, patron.getEvaluacionesAnomalasConsecutivas());
-
-        context.service.evaluar(tanque(), ultimaLectura(segundaLista));
-
-        verify(context.alertaRepository).save(argThat((Alerta alerta) ->
-                "ANOMALIA_CONSUMO".equals(alerta.getTipo())
-                        && "FUGA_NOCTURNA".equals(alerta.getReglaId())
-                        && "cm".equals(alerta.getUnidadMedida())
-                        && alerta.getDescripcion().contains("01:00-05:00")));
-    }
-
-    @Test
-    void reglaDeFugaLentaDetectaTendenciaAunqueNoSeaUnaCaidaRapida() {
+    void modoVigilanciaConfirmaCaidaLentaDeUnCentimetroEnTreintaMinutos() {
         TestContext context = new TestContext();
         LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 10, 0);
         PatronConsumo patron = new PatronConsumo();
         when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
-                "tanque-01", "LUNES", "MANANA")).thenReturn(Optional.of(patron));
+                "tanque-01", "MODO_VIGILANCIA", "MODO_VIGILANCIA"))
+                .thenReturn(Optional.of(patron));
         when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
 
-        List<LecturaNivel> primeraLista = lecturasDescendentes(inicio, 61, 100.0, 0.025);
-        List<LecturaNivel> segundaLista = lecturasDescendentes(inicio, 62, 100.0, 0.025);
+        List<LecturaNivel> primeraLista = lecturasDescendentes(inicio, 61, 100.0, 0.03);
+        List<LecturaNivel> segundaLista = lecturasDescendentes(inicio, 62, 100.0, 0.03);
         when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
                 .thenReturn(primeraLista, segundaLista);
 
-        context.service.evaluar(tanque(), ultimaLectura(primeraLista));
+        Tanque tanque = tanque();
+        tanque.setModoVigilancia(true);
+        context.service.evaluar(tanque, ultimaLectura(primeraLista));
         assertEquals(1, patron.getEvaluacionesAnomalasConsecutivas());
 
-        context.service.evaluar(tanque(), ultimaLectura(segundaLista));
+        context.service.evaluar(tanque, ultimaLectura(segundaLista));
 
         verify(context.alertaRepository).save(argThat((Alerta alerta) ->
-                "FUGA_LENTA".equals(alerta.getReglaId())
-                        && alerta.getDescripcion().contains("30 minutos")
+                "ANOMALIA_CONSUMO".equals(alerta.getTipo())
+                        && "MODO_VIGILANCIA_LENTO".equals(alerta.getReglaId())
+                        && "cm".equals(alerta.getUnidadMedida())
+                        && alerta.getDescripcion().contains(
+                                "Consumo detectado en Modo Vigilancia (Casa Vacía)")));
+    }
+
+    @Test
+    void modoVigilanciaDetectaLaCaidaRapidaDeUnCentimetroYMedioEnDosMinutos() {
+        TestContext context = new TestContext();
+        LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 10, 0);
+        PatronConsumo patron = new PatronConsumo();
+        when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
+                "tanque-01", "MODO_VIGILANCIA", "MODO_VIGILANCIA"))
+                .thenReturn(Optional.of(patron));
+        when(context.alertaRepository.findByTanqueId("tanque-01")).thenReturn(List.of());
+
+        List<LecturaNivel> primeraLista = lecturasDescendentes(inicio, 5, 100.0, 0.4);
+        List<LecturaNivel> segundaLista = lecturasDescendentes(inicio, 6, 100.0, 0.4);
+        when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
+                .thenReturn(primeraLista, segundaLista);
+
+        Tanque tanque = tanque();
+        tanque.setModoVigilancia(true);
+        context.service.evaluar(tanque, ultimaLectura(primeraLista));
+        assertEquals(1, patron.getEvaluacionesAnomalasConsecutivas());
+
+        context.service.evaluar(tanque, ultimaLectura(segundaLista));
+
+        verify(context.alertaRepository).save(argThat((Alerta alerta) ->
+                "MODO_VIGILANCIA_RAPIDO".equals(alerta.getReglaId())
+                        && alerta.getDescripcion().contains("2 minutos")
                         && "cm".equals(alerta.getUnidadMedida())));
     }
 
@@ -179,6 +186,26 @@ class DeteccionAnomaliasServiceTests {
                 .thenReturn(spike);
         ruido.service.evaluar(tanque(), ultimaLectura(spike));
         verify(ruido.alertaRepository, never()).save(any());
+    }
+
+    @Test
+    void consumoResidencialModeradoConNumeroPersonasConfiguradoNoGeneraAlerta() {
+        TestContext context = new TestContext();
+        LocalDateTime inicio = LocalDateTime.of(2026, 10, 26, 10, 0);
+        PatronConsumo patron = new PatronConsumo();
+        when(context.patronRepository.findByTanqueIdAndDiaSemanaAndFranja(
+                "tanque-01", "LUNES", "MANANA")).thenReturn(Optional.of(patron));
+        List<LecturaNivel> lecturas = lecturasDescendentes(inicio, 61, 100.0, 0.02);
+        when(context.lecturaRepository.findByTanqueIdOrderByTimestampDesc("tanque-01"))
+                .thenReturn(lecturas);
+
+        Tanque tanque = tanque();
+        tanque.setNumeroPersonas(4);
+        tanque.setModoVigilancia(false);
+        context.service.evaluar(tanque, ultimaLectura(lecturas));
+
+        verify(context.alertaRepository, never()).save(any());
+        assertFalse(ultimaLectura(lecturas).isEsAnomalia());
     }
 
     @Test
@@ -323,6 +350,8 @@ class DeteccionAnomaliasServiceTests {
         tanque.setId("tanque-01");
         tanque.setVolumenMax(600);
         tanque.setAlturaMaxCm(103);
+        tanque.setNumeroPersonas(4);
+        tanque.setModoVigilancia(false);
         tanque.setMargenInformativoPct(20);
         tanque.setUmbralAnomaliaPct(50);
         return tanque;

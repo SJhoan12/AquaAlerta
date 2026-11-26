@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inicio - AquaAlerta</title>
-    <link rel="stylesheet" th:href="@{/style.css(v=7)}">
+    <link rel="stylesheet" th:href="@{/style.css(v=9)}">
     <link rel="stylesheet" th:href="@{/theme.css(v=1)}">
     <script th:src="@{/theme.js(v=1)}"></script>
 </head>
@@ -32,10 +32,41 @@
 <div th:if="${sel != null and #lists.isEmpty(ultimas)}" class="empty">
 <h3 th:text="${sel.nombre}">Tanque</h3>
 <p>Este tanque todavía no tiene lecturas. Selecciona otro tanque o espera a que el sensor envíe datos.</p>
+<div class="vigilance-empty-action">
+<div class="vigilance-quick-action">
+<div class="vigilance-quick-copy">
+<h3>Modo Vigilancia (Casa Vacía)</h3>
+<span class="hint">Actívalo al salir, te avisará si detecta una caída de agua cuando no haya nadie en casa.</span>
+</div>
+<form th:action="@{'/tanques/' + ${sel.tanqueId} + '/modo-vigilancia/toggle'}" method="post">
+<input type="hidden" name="_csrf" th:value="${session.csrfToken}">
+<input type="hidden" name="origen" value="dashboard">
+<button type="submit" class="btn btn-sm vigilancia-toggle"
+        th:classappend="${sel.modoVigilancia} ? ' vigilancia-activa' : ' vigilancia-inactiva'"
+        th:text="${sel.modoVigilancia} ? 'Vigilancia activada' : 'Vigilancia desactivada'">Vigilancia desactivada</button>
+</form>
+</div>
+</div>
 </div>
 <div th:if="${sel != null and !#lists.isEmpty(ultimas)}">
-<div class="grid grid-2">
+<div class="dashboard-columns">
+<div class="dashboard-column">
 <div class="card">
+<div class="vigilance-card-section">
+<div class="vigilance-quick-action">
+<div class="vigilance-quick-copy">
+<h3>Modo Vigilancia (Casa Vacía)</h3>
+<span class="hint">Actívalo al salir, te avisará si detecta una caída de agua cuando no haya nadie en casa.</span>
+</div>
+<form th:action="@{'/tanques/' + ${sel.tanqueId} + '/modo-vigilancia/toggle'}" method="post">
+<input type="hidden" name="_csrf" th:value="${session.csrfToken}">
+<input type="hidden" name="origen" value="dashboard">
+<button type="submit" class="btn btn-sm vigilancia-toggle"
+        th:classappend="${sel.modoVigilancia} ? ' vigilancia-activa' : ' vigilancia-inactiva'"
+        th:text="${sel.modoVigilancia} ? 'Vigilancia activada' : 'Vigilancia desactivada'">Vigilancia desactivada</button>
+</form>
+</div>
+</div>
 <h3 th:text="${sel.nombre}">Tanque</h3>
 <div class="sensor-indicator">
 <span class="sensor-status" th:classappend="${sensorConectado} ? ' sensor-connected' : ' sensor-disconnected'">
@@ -58,6 +89,19 @@
 <div class="hint hint-mt">≈ <span th:text="${#numbers.formatInteger(sel.porcentaje, 1)}">0</span>% de altura</div>
 </div>
 <div class="card">
+<h3>Consumo aproximado</h3>
+<span class="hint">Cambio estimado del volumen entre lecturas</span>
+<div th:if="${#lists.size(ultimas) >= 2}">
+<div class="consume-big">≈ <span th:text="${#numbers.formatDecimal(ultimas[0].volumenLitros - ultimas[#lists.size(ultimas) - 1].volumenLitros, 1, 1)}">0,0</span><small> L</small></div>
+<div class="bar-row"><span class="b-label">Reciente</span><div class="bar"><span style="width: 60%;"></span></div></div>
+<div class="bar-row"><span class="b-label">Habitual</span><div class="bar"><span class="hist" style="width: 40%;"></span></div></div>
+<p class="hint hint-mt">El valor habitual se calcula con tu historial por franja.</p>
+</div>
+<p class="hint hint-mt" th:if="${#lists.size(ultimas) &lt; 2}">Aun no hay suficientes lecturas.</p>
+</div>
+</div>
+<div class="dashboard-column dashboard-compact">
+<div class="card">
 <h3>Ultimas lecturas</h3>
 <span class="hint">Las mas recientes</span>
 <div class="table-wrap table-mt">
@@ -78,20 +122,6 @@
 </table>
 </div>
 </div>
-</div>
-<!--BLOQUE2-->
-<div class="grid grid-2 grid-gap-top">
-<div class="card">
-<h3>Consumo aproximado</h3>
-<span class="hint">Cambio estimado del volumen entre lecturas</span>
-<div th:if="${#lists.size(ultimas) >= 2}">
-<div class="consume-big">≈ <span th:text="${#numbers.formatDecimal(ultimas[0].volumenLitros - ultimas[#lists.size(ultimas) - 1].volumenLitros, 1, 1)}">0,0</span><small> L</small></div>
-<div class="bar-row"><span class="b-label">Reciente</span><div class="bar"><span style="width: 60%;"></span></div></div>
-<div class="bar-row"><span class="b-label">Habitual</span><div class="bar"><span class="hist" style="width: 40%;"></span></div></div>
-<p class="hint hint-mt">El valor habitual se calcula con tu historial por franja.</p>
-</div>
-<p class="hint hint-mt" th:if="${#lists.size(ultimas) &lt; 2}">Aun no hay suficientes lecturas.</p>
-</div>
 <div class="card">
 <h3>Estado del tanque</h3>
 <span class="hint">Resumen rapido</span>
@@ -99,6 +129,7 @@
 <div class="stat-line"><span>Nivel</span><b th:text="${#numbers.formatDecimal(sel.nivelCm, 1, 1)} + ' cm'">0,0 cm</b></div>
 <div class="stat-line"><span>Volumen aprox.</span><b th:text="'≈ ' + ${#numbers.formatDecimal(sel.volumenLitros, 1, 1)} + ' L'">≈ 0,0 L</b></div>
 <div class="stat-line"><span>Total de lecturas</span><b th:text="${cantidadLecturas}">0</b></div>
+</div>
 </div>
 </div>
 </div>
