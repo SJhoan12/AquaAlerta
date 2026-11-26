@@ -13,6 +13,6 @@ services:
       SPRING_MONGODB_URI: "mongodb+srv://jhoanmanuelcs_db_user:H9GCngX46PifWwpX@aquaalerta.cvbbk3q.mongodb.net/aquaalerta?retryWrites=true&w=majority"
       MONGODB_URI: "mongodb+srv://jhoanmanuelcs_db_user:H9GCngX46PifWwpX@aquaalerta.cvbbk3q.mongodb.net/aquaalerta_prod?retryWrites=true&w=majority&appName=aquaalerta"
       AQUAALERTA_SENSOR_API_KEY: "df75c400c01facf02dd33b8fa431ebe4fb815314e95c15c25c45ade59243b3c6"
-      AQUAALERTA_TOTP_ENCRYPTION_KEY: "8f4e2b9c1a7d5e3f0b6c8a2d4e9f1b7c3a5d8e2f6b0c4a9d1e7f3b5c8a2d6e4f"
+      AQUAALERTA_TOTP_ENCRYPTION_KEY: "55b030a24d956989b6fa9563cb85987f7cc2a9a59ddb09dafa3ee8472de8c4e5"
       SERVER_FORWARD_HEADERS_STRATEGY: "native"
       SESSION_COOKIE_SECURE: "true"
